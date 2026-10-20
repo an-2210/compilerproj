@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-20T05:51:33.486269+00:00",
+  "total_records": 484,
+  "files": {
+    "seeds": {
+      "path": "data\\seeds\\seed_examples.jsonl",
+      "records": 52,
+      "sha256": "62159526df87187753f016b04cf8f1e62e664b11913a62111d8cfdba5c2df0e8",
+      "size_bytes": 28809
+    },
+    "synthetic_processed": {
+      "path": "data\\processed\\dataset.jsonl",
+      "records": 208,
+      "sha256": "b1d1b04b41fd5f3cff835f11c3438c846fcfc3027336a96abc1a0064def2d9d6",
+      "size_bytes": 561525
+    },
+    "real_bugs_processed": {
+      "path": "data\\processed\\real_bugs.jsonl",
+      "records": 8,
+      "sha256": "1ae1de1f62f2c827b4928841cd36b36820b4c730339a1591ccd769bf3aecfe35",
+      "size_bytes": 19931
+    },
+    "train": {
+      "path": "data\\splits\\train.jsonl",
+      "records": 164,
+      "sha256": "7049e35b709cda19c45823f8fcdeb6e5d5ccb05a1edeb5b83a0b568da5554769",
+      "size_bytes": 441661
+    },
+    "val": {
+      "path": "data\\splits\\val.jsonl",
+      "records": 20,
+      "sha256": "5c7e8cfe0b32f6a7387b6aebe31dba43b6d3f9066ca5cfd1910cf380c31333bf",
+      "size_bytes": 56690
+    },
+    "test": {
+      "path": "data\\splits\\test.jsonl",
+      "records": 24,
+      "sha256": "cb85b8c6a2af6ddbbbb4fe54744f849b82a578d4582858e30c62a9bc01e2ce38",
+      "size_bytes": 63734
+    },
+    "real_test": {
+      "path": "data\\splits\\real_test.jsonl",
+      "records": 8,
+      "sha256": "f677834eb8686d08dbfe9a2c3465d41e3c3259acea4d97b582764be1c0058260",
+      "size_bytes": 19987
+    }
+  },
+  "metadata": {}
+}

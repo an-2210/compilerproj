@@ -1,0 +1,28 @@
+{
+  "leakage_free": true,
+  "counts": {
+    "train": 164,
+    "val": 20,
+    "test": 24,
+    "real_test": 8,
+    "total_synthetic": 208
+  },
+  "groups_count": {
+    "train_groups": 41,
+    "val_groups": 5,
+    "test_groups": 6,
+    "real_groups": 8
+  },
+  "proportions": {
+    "train": 0.7885,
+    "val": 0.0962,
+    "test": 0.1154
+  },
+  "forbidden_intersections": {
+    "train_val": [],
+    "train_test": [],
+    "val_test": [],
+    "train_real": [],
+    "val_real": []
+  }
+}

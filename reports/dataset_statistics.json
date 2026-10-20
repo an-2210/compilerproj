@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-20T05:51:14.612575+00:00",
+  "total_records": 216,
+  "distributions": {
+    "by_language": {
+      "c": 83,
+      "cpp": 62,
+      "python": 71
+    },
+    "by_source_type": {
+      "real_bug": 8,
+      "synthetic": 208
+    },
+    "by_validation_status": {
+      "MUTANT_VALIDATED": 216
+    },
+    "by_split": {
+      "real_test": 8,
+      "test": 24,
+      "train": 164,
+      "val": 20
+    },
+    "by_category": {
+      "delimiter_punctuation": 98,
+      "function_call_argument": 19,
+      "declaration_identifier": 13,
+      "indentation_block": 7,
+      "expression_operator": 79
+    },
+    "by_subcategory": {
+      "delimiter_punctuation::missing_semicolon": 9,
+      "function_call_argument::too_few_arguments": 10,
+      "declaration_identifier::undeclared_identifier": 13,
+      "delimiter_punctuation::unmatched_parenthesis": 19,
+      "delimiter_punctuation::unmatched_bracket": 28,
+      "indentation_block::indentation_error": 7,
+      "expression_operator::invalid_assignment_target": 30,
+      "delimiter_punctuation::missing_delimiter": 1,
+      "expression_operator::missing_operand": 12,
+      "delimiter_punctuation::missing_comma": 18,
+      "expression_operator::invalid_expression_operator": 18,
+      "expression_operator::invalid_comparison": 19,
+      "delimiter_punctuation::extra_semicolon": 12,
+      "function_call_argument::too_many_arguments": 9,
+      "delimiter_punctuation::missing_brace": 11
+    },
+    "by_operator": {
+      "MISSING_EXPRESSION_OPERAND": 12,
+      "UNMATCHED_PARENTHESIS": 18,
+      "MISSING_DELIMITER_COMMA": 18,
+      "UNMATCHED_OPENING_BRACKET": 12,
+      "ASSIGNMENT_VS_EQUALITY_MUTATION": 29,
+      "MISSING_FUNCTION_ARGUMENT": 9,
+      "ARITHMETIC_OPERATOR_MUTATION": 18,
+      "UNMATCHED_CLOSING_BRACKET": 15,
+      "COMPARISON_OPERATOR_MUTATION": 19,
+      "C_EXTRA_SEMICOLON": 12,
+      "IDENTIFIER_MISSPELLING": 12,
+      "C_MISSING_SEMICOLON": 8,
+      "PYTHON_INDENTATION_ERROR": 6,
+      "EXTRA_FUNCTION_ARGUMENT": 9,
+      "MISSING_CLOSING_BRACE": 11
+    },
+    "by_compiler": {
+      "gcc": 83,
+      "g++": 62,
+      "python_compiler": 71
+    }
+  },
+  "diagnostics": {
+    "records_with_extracted_diagnostics": 216,
+    "diagnostic_extraction_success_rate": 1.0
+  },
+  "builder_metrics": {},
+  "split_audit": {
+    "leakage_free": true,
+    "counts": {
+      "train": 164,
+      "val": 20,
+      "test": 24,
+      "real_test": 8,
+      "total_synthetic": 208
+    },
+    "groups_count": {
+      "train_groups": 41,
+      "val_groups": 5,
+      "test_groups": 6,
+      "real_groups": 8
+    },
+    "proportions": {
+      "train": 0.7885,
+      "val": 0.0962,
+      "test": 0.1154
+    },
+    "forbidden_intersections": {
+      "train_val": [],
+      "train_test": [],
+      "val_test": [],
+      "train_real": [],
+      "val_real": []
+    }
+  },
+  "metadata": {}
+}

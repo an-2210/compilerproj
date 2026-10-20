@@ -1,0 +1,58 @@
+# Dataset Engineering Configuration for Compiler Error Detection & Repair
+
+dataset:
+  schema_version: "1.0"
+  random_seed: 42
+
+paths:
+  seeds_file: "data/seeds/seed_examples.jsonl"
+  processed_dataset: "data/processed/dataset.jsonl"
+  real_bugs_dir: "data/real_bugs"
+  processed_real_bugs: "data/processed/real_bugs.jsonl"
+  splits_dir: "data/splits"
+  reports_dir: "reports"
+
+compilers:
+  timeout_seconds: 5.0
+  max_output_bytes: 65536
+  c:
+    executable: "gcc"
+    flags: ["-fsyntax-only", "-Wall"]
+    fallback_parser: "pycparser"
+  cpp:
+    executable: "g++"
+    flags: ["-fsyntax-only", "-Wall"]
+    fallback_parser: "token"
+  python:
+    executable: "python"
+    flags: ["-m", "py_compile"]
+    fallback_parser: "ast"
+
+mutation:
+  max_mutants_per_seed: 4
+  random_seed: 42
+  allow_cascading_diagnostics: false
+  operators:
+    # 15 distinct mutation operators
+    - C_MISSING_SEMICOLON
+    - C_EXTRA_SEMICOLON
+    - UNMATCHED_OPENING_BRACKET
+    - UNMATCHED_CLOSING_BRACKET
+    - UNMATCHED_PARENTHESIS
+    - MISSING_CLOSING_BRACE
+    - ARITHMETIC_OPERATOR_MUTATION
+    - COMPARISON_OPERATOR_MUTATION
+    - ASSIGNMENT_VS_EQUALITY_MUTATION
+    - MISSING_EXPRESSION_OPERAND
+    - MISSING_DELIMITER_COMMA
+    - IDENTIFIER_MISSPELLING
+    - EXTRA_FUNCTION_ARGUMENT
+    - MISSING_FUNCTION_ARGUMENT
+    - PYTHON_INDENTATION_ERROR
+
+splitting:
+  random_seed: 42
+  train_ratio: 0.80
+  val_ratio: 0.10
+  test_ratio: 0.10
+  group_by: "split_group_id"
