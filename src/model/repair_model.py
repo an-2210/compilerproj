@@ -149,9 +149,8 @@ class MockModelProvider(ModelProvider):
         # Extract raw code
         code_match = re.search(r"Raw code without line numbers:\s*```(?:\w+)?\n(.*?)\n```", prompt, re.DOTALL)
         raw_code = code_match.group(1) if code_match else ""
-
-        # Check for feedback presence to vary candidate
-        is_feedback = "ATTENTION: PREVIOUS REPAIR ATTEMPT REJECTED" in prompt
+        lang_match = re.search(r"^Language:\s*(\w+)", prompt, re.MULTILINE)
+        language = lang_match.group(1).lower() if lang_match else "python"
 
         repaired_code = raw_code
         category = "syntax"
@@ -184,7 +183,7 @@ class MockModelProvider(ModelProvider):
             root_cause = "Fixed malformed comparison operator"
 
         # Heuristic 5: Python missing colon: 'def f(x)' or 'if x'
-        elif re.search(r"(def \w+\([^)]*\)|if [^:\n]+|while [^:\n]+|for [^:\n]+)$", raw_code, re.MULTILINE):
+        elif language == "python" and re.search(r"(def \w+\([^)]*\)|if [^:\n]+|while [^:\n]+|for [^:\n]+)$", raw_code, re.MULTILINE):
             lines = raw_code.splitlines()
             for idx, line in enumerate(lines):
                 if re.match(r"\s*(def|if|while|for|class|elif)\b.*[^:]$", line):
@@ -195,11 +194,12 @@ class MockModelProvider(ModelProvider):
             repaired_code = "\n".join(lines) + ("\n" if raw_code.endswith("\n") else "")
 
         # Heuristic 6: Missing semicolon in C / C++
-        elif "expected ';'" in prompt or "missing semicolon" in prompt.lower():
+        elif language in {"c", "cpp", "c++"} and ("expected ';'" in prompt or "missing semicolon" in prompt.lower()):
             lines = raw_code.splitlines()
             for idx, line in enumerate(lines):
                 s = line.strip()
-                if s and not s.endswith(";") and not s.endswith("{") and not s.endswith("}") and not s.startswith("#"):
+                if (s and not s.endswith((";", "{", "}")) and not s.startswith("#")
+                        and not re.match(r"(?:if|while|for|switch|else|do)\b", s)):
                     lines[idx] = line + ";"
                     target_line = idx + 1
                     root_cause = "Added missing semicolon terminator"
@@ -207,14 +207,16 @@ class MockModelProvider(ModelProvider):
             repaired_code = "\n".join(lines) + ("\n" if raw_code.endswith("\n") else "")
 
         # Heuristic 7: Missing header in C / C++ (e.g. printf without stdio.h)
-        elif "printf" in raw_code and "#include <stdio.h>" not in raw_code:
+        elif (language in {"c", "cpp", "c++"} and "#include <stdio.h>" not in raw_code
+              and re.search(r"implicit declaration of function 'printf'", prompt)
+              and re.search(r"\bprintf\s*\(", raw_code)):
             repaired_code = "#include <stdio.h>\n" + raw_code
             target_line = 1
             category = "import"
             root_cause = "Included missing stdio.h header for printf"
 
         # Heuristic 8: Indentation error in Python
-        elif "indent" in prompt.lower():
+        elif language == "python" and "indent" in prompt.lower():
             lines = raw_code.splitlines()
             for idx, line in enumerate(lines):
                 if line.strip() and not line.startswith(" ") and idx > 0 and lines[idx - 1].endswith(":"):
@@ -226,7 +228,7 @@ class MockModelProvider(ModelProvider):
             repaired_code = "\n".join(lines) + ("\n" if raw_code.endswith("\n") else "")
 
         # Heuristic 9: Undefined name / typo in Python
-        elif "undefined name 'totl'" in prompt or "totl" in raw_code:
+        elif language == "python" and ("undefined name 'totl'" in prompt or "totl" in raw_code):
             repaired_code = raw_code.replace("totl", "total")
             category = "declaration_identifier"
             root_cause = "Renamed misspelled identifier 'totl' to 'total'"
@@ -235,11 +237,9 @@ class MockModelProvider(ModelProvider):
         else:
             try:
                 from src.analysis_engine import detect, build_context, rule_repair
-                lang_match = re.search(r"^Language:\s*(\w+)", prompt, re.MULTILINE)
-                lang = lang_match.group(1).lower() if lang_match else "python"
-                det = detect(raw_code, lang)
+                det = detect(raw_code, language)
                 if det.detected and det.root:
-                    ctx = build_context(raw_code, det.root, lang)
+                    ctx = build_context(raw_code, det.root, language, det.diagnostics)
                     res = rule_repair(ctx)
                     if res.chosen and res.chosen.code != raw_code:
                         repaired_code = res.chosen.code
@@ -250,15 +250,8 @@ class MockModelProvider(ModelProvider):
             except Exception:
                 pass
 
-        if repaired_code == raw_code:
-            if is_feedback:
-                repaired_code = f"# Alternative fix attempt\n{raw_code}"
-            else:
-                # Modify first reported line to ensure candidate is not unchanged
-                lines = raw_code.splitlines()
-                if lines:
-                    lines[0] = f"# Repaired line\n{lines[0]}"
-                    repaired_code = "\n".join(lines) + ("\n" if raw_code.endswith("\n") else "")
+        # An unchanged response is filtered by candidate generation. Fabricating a
+        # comment or punctuation edit here can only obscure the real diagnostic.
 
         return json.dumps({
             "repaired_code": repaired_code,

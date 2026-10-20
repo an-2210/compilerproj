@@ -25,7 +25,7 @@ _DEFINE = re.compile(r"^\s*#\s*define\s+([A-Za-z_]\w*)", re.MULTILINE)
 _INCLUDE = re.compile(r"^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]", re.MULTILINE)
 
 
-def _functions(sanitized: str) -> List[Tuple[str, int, int, str]]:
+def function_spans(sanitized: str) -> List[Tuple[str, int, int, str]]:
     """Return (name, open_line, close_line, parameter_text) for each top-level function."""
     functions = []
     depth = 0
@@ -63,7 +63,7 @@ def _functions(sanitized: str) -> List[Tuple[str, int, int, str]]:
 
 def analyze(code: str, reported_line: int) -> Dict[str, Any]:
     sanitized = sanitize(code, "c")
-    functions = _functions(sanitized)
+    functions = function_spans(sanitized)
 
     scope = None
     for name, start, end, _params in functions:

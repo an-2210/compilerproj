@@ -1,0 +1,13 @@
+# Git workflow
+
+## Actual branch graph
+
+The checkout is `compilerproj`, nested under the prompt directory. `origin` is `https://github.com/an-2210/compilerproj`. The original `meheli-initial` branch remains at `f91955b6ce0fe9ceb860971d4bc361c2ad1491d5`. That history contains Data work (`0450f70`), Analysis work (`98abe21`), and ML work (`f91955b`) in sequence. `feature/systems-engineering` branches from `f91955b` and contains the Systems commits. The local `origin/feature/systems-engineering` tracking ref was updated by a normal push to `aed5776` on 2026-10-20 at 21:54:10 +0530; a fresh remote query could not be authenticated in the automation account, so current server state is unconfirmed. `origin/HEAD` points to `meheli-initial`. No local `main` or `develop` branch exists.
+
+Separate Data and ML branches would currently point at historical commits without new work; creating them would misrepresent the integrated history. The small Analysis fix was committed as part of the Systems integration because its missing-mypy behavior affected the end-to-end path. Future independent work can use `feature/data-engineering`, `feature/analysis-engineering`, or `feature/ml-engineering` when there is a concrete scoped change. Choose the reviewed integration baseline for each new branch; do not copy the Systems implementation into every workstream.
+
+## Review and publish
+
+Inspect with `git status --short --branch`, `git branch -avv`, `git log --oneline --decorate -12`, and `git diff meheli-initial...feature/systems-engineering`. On this Windows machine, Git may flag ownership because the automation account differs from the repository owner. Use a repository-specific `git -c safe.directory=<absolute-checkout-path> ...` for a command if required; do not configure a wildcard globally.
+
+Before the next push, use the owner's authenticated PowerShell to verify `gh auth status`, run `gh auth setup-git --hostname github.com` if Git still cannot use that authentication, fetch `origin`, and compare the local and remote feature branch. The automation shell uses a separate Windows account and still sees an invalid saved token even after the owner authenticated. If the remote is an ancestor and the worktree is clean, use a normal `git push -u origin feature/systems-engineering`. If it has moved independently, inspect the commits and integrate them without discarding history. Never force-push or merge into a shared/default branch without review and authorization. Create a pull request against `meheli-initial` (the observed default) only after fresh remote confirmation and checks; do not merge it automatically. Recovery begins with status, reflog, and commit IDs, not reset or clean commands.

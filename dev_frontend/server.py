@@ -14,6 +14,7 @@ Engineer). It serves only on 127.0.0.1.
 """
 
 import json
+import os
 import sys
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,11 +25,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src.analysis_engine import build_context, detect, rule_repair  # noqa: E402
+from src.systems import run_pipeline  # noqa: E402
 
 PAGE = Path(__file__).resolve().parent / "index.html"
 SAMPLE_FILES = ["data/splits/test.jsonl", "data/splits/real_test.jsonl", "data/splits/val.jsonl"]
 MAX_CODE_CHARS = 20_000
-HOST, PORT = "127.0.0.1", 8765
+HOST = os.environ.get("APP_HOST", "127.0.0.1")
+PORT = int(os.environ.get("APP_PORT", "8765"))
 
 
 def analyze(code: str, language: str) -> Dict[str, Any]:
@@ -47,7 +50,7 @@ def analyze(code: str, language: str) -> Dict[str, Any]:
     if detection.root is None:
         return payload
 
-    context = build_context(code, detection.root, language)
+    context = build_context(code, detection.root, language, detection.diagnostics)
     repair = rule_repair(context)
     payload["context"] = context.model_dump(exclude={"code"})
     payload["repair"] = repair.model_dump()
@@ -97,26 +100,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/samples":
             self._send_json(200, sample_list())
+        elif self.path == "/health":
+            self._send_json(200, {"status": "ok"})
         else:
             self._send_json(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/api/analyze":
+        if self.path not in ("/api/analyze", "/api/repair"):
             self._send_json(404, {"error": "not found"})
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if length > MAX_CODE_CHARS * 4:
+            if length < 1 or length > MAX_CODE_CHARS * 4:
                 self._send_json(413, {"error": "request too large"})
                 return
             body = json.loads(self.rfile.read(length) or b"{}")
-            result = analyze(body.get("code", ""), body.get("language", "python"))
+            if not isinstance(body, dict):
+                raise ValueError("JSON body must be an object")
+            if self.path == "/api/repair":
+                result = run_pipeline(body.get("code", ""), body.get("language", "python"),
+                                      max_attempts=body.get("max_attempts", 3)).model_dump()
+            else:
+                result = analyze(body.get("code", ""), body.get("language", "python"))
             self._send_json(200, result)
         except (ValueError, json.JSONDecodeError) as err:
             self._send_json(400, {"error": str(err)})
-        except RuntimeError as err:
-            # Missing toolchain (for example g++ not installed)
-            self._send_json(500, {"error": str(err)})
+        except (RuntimeError, ImportError):
+            self._send_json(503, {"error": "required analysis tool is unavailable"})
 
     def log_message(self, fmt: str, *args: Any) -> None:
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))

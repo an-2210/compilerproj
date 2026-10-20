@@ -48,6 +48,15 @@ def test_c_adapter_syntax_error():
     assert "expected ';'" in diag.message
 
 
+def test_c_adapter_normalizes_gcc_typographic_quotes_without_losing_raw_output():
+    adapter = get_adapter(Language.C)
+    raw = "input.c:1:23: error: expected ‘;’ before ‘}’ token"
+    diagnostics = adapter.extract_diagnostics(raw, "")
+    assert len(diagnostics) == 1
+    assert diagnostics[0].message == "expected ';' before '}' token"
+    assert diagnostics[0].raw_text == raw
+
+
 def test_cpp_adapter_valid_source():
     adapter = get_adapter(Language.CPP)
     if not adapter.is_available():
