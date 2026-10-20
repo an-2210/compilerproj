@@ -12,7 +12,7 @@ Start the existing HTML UI and API together:
 python dev_frontend/server.py
 ```
 
-Open <http://127.0.0.1:8765/>. Readiness is <http://127.0.0.1:8765/health>. The UI accepts pasted code or a dataset sample, shows diagnostic location and context, rule candidate explanations, verification status, unified diffs, and attempt history. It offers a download only when a candidate is `VERIFIED`.
+Open <http://127.0.0.1:8765/>. Readiness is <http://127.0.0.1:8765/health>. The UI accepts pasted code or a dataset sample, shows diagnostic location and context, rule candidate explanations, verification status, unified diffs, and attempt history. It offers a download only when a candidate is `VERIFIED` for the current code and language. Editing the input clears the prior result and requires another verification.
 
 For an API demo, send a JSON body to `POST http://127.0.0.1:8765/api/repair`:
 

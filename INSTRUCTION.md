@@ -30,7 +30,7 @@ docker compose down
 
 The single `app` service exposes port 8765 on host loopback. It installs Python requirements and GCC/G++, runs as UID 10001, uses a read-only root filesystem and 64 MiB temporary filesystem, and has a health check. Compose config also applies 512 MiB memory and one CPU. The application runs `python dev_frontend/server.py`. To run tests in a one-off container, use `docker compose run --rm app python -m pytest -q`; test networking and compiler resource constraints depend on the Docker host.
 
-Docker client 28.1.1 was present during development, but this session lacked permission to access its daemon. Image build, container startup and Compose health checks were therefore not executed here; run the commands above on a machine with Docker daemon access.
+Docker client 28.1.1 was present during validation. `docker compose -f compose.yaml config` passed from this directory. The build was attempted but could not contact the Docker engine from the automation account (`//./pipe/docker_engine: Access is denied`); container startup and health inside Docker remain unverified here. Run the commands above from a PowerShell account with Docker Desktop engine access. The prompt directory above `compilerproj` has no Compose file; change into `compilerproj` or pass its verified Compose path with `-f`.
 
 ## Demo
 

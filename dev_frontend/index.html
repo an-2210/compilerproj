@@ -126,6 +126,19 @@
   const $ = (id) => document.getElementById(id);
   let samples = [];
   let verifiedCode = null;
+  let verifiedLanguage = null;
+
+  function invalidateVerification() {
+    verifiedCode = null;
+    verifiedLanguage = null;
+    $("download").hidden = true;
+    $("detection").replaceChildren(el("span", "Nothing analyzed yet.", "muted"));
+    $("context").replaceChildren(el("span", "Context appears after a detected error.", "muted"));
+    $("repair").replaceChildren(el("span", "Repair appears after a detected error.", "muted"));
+    $("candidates").replaceChildren(el("span", "None yet.", "muted"));
+    $("verification").replaceChildren(el("span", "Input changed. Analyze and verify again.", "muted"));
+    setStatus("Input changed. Analyze again.");
+  }
 
   function el(tag, text, cls) {
     const node = document.createElement(tag);
@@ -169,14 +182,17 @@
     if (!s) return;
     $("code").value = s.mutated_code;
     $("language").value = s.language;
+    invalidateVerification();
   });
+
+  $("code").addEventListener("input", invalidateVerification);
+  $("language").addEventListener("change", invalidateVerification);
 
   $("clear").addEventListener("click", () => {
     $("code").value = "";
     $("sample").value = "";
+    invalidateVerification();
     setStatus("");
-    verifiedCode = null;
-    $("download").hidden = true;
   });
 
   $("download").addEventListener("click", () => {
@@ -185,12 +201,12 @@
     const url = URL.createObjectURL(blob);
     const a = el("a");
     a.href = url;
-    a.download = $("language").value === "python" ? "repaired.py" : ($("language").value === "cpp" ? "repaired.cpp" : "repaired.c");
+    a.download = verifiedLanguage === "python" ? "repaired.py" : (verifiedLanguage === "cpp" ? "repaired.cpp" : "repaired.c");
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
-  function renderVerification(data) {
+  function renderVerification(data, language) {
     const box = $("verification");
     box.replaceChildren();
     box.append(badge(data.status, data.status === "VERIFIED" ? "ok" : "bad"));
@@ -207,6 +223,7 @@
       if (attempt.stderr && attempt.status === "INCONCLUSIVE") box.append(el("pre", attempt.stderr));
     }
     verifiedCode = data.status === "VERIFIED" ? data.repaired_code : null;
+    verifiedLanguage = verifiedCode === null ? null : language;
     $("download").hidden = verifiedCode === null;
   }
 
@@ -291,7 +308,7 @@
       return;
     }
     const chosen = r.chosen;
-    box.append(badge(chosen && chosen.compiles ? "compiles after fix" : "no candidate compiles", chosen && chosen.compiles ? "ok" : "bad"));
+    box.append(badge(chosen && chosen.compiles ? "rule precheck passed" : "rule precheck failed", chosen && chosen.compiles ? "ok" : "bad"));
     box.append(badge(`${r.rule_candidates.length} candidates`, ""));
     box.append(kv([
       ["chosen rule", chosen ? chosen.rule_id : null],
@@ -299,7 +316,7 @@
       ["confidence", chosen ? chosen.confidence : null],
     ]));
     if (chosen) {
-      const label = el("div", "Patched program", "muted");
+      const label = el("div", "Rule proposal (see verification below)", "muted");
       label.style.margin = "10px 0 4px";
       box.append(label);
       const pre = el("pre");
@@ -314,7 +331,7 @@
     if (!r || !r.rule_candidates.length) { box.append(el("span", "No candidates.", "muted")); return; }
     const table = el("table");
     const head = el("tr");
-    ["#", "rule", "line", "confidence", "compiles", "description"].forEach((h) => head.append(el("th", h)));
+    ["#", "rule", "line", "confidence", "rule precheck", "description"].forEach((h) => head.append(el("th", h)));
     table.append(head);
     r.rule_candidates.forEach((c, i) => {
       const tr = el("tr");
@@ -331,23 +348,29 @@
 
   $("analyze").addEventListener("click", async () => {
     const code = $("code").value;
+    const language = $("language").value;
     if (!code.trim()) { setStatus("Paste some code or choose a sample first.", true); return; }
     const button = $("analyze");
     button.disabled = true;
+    invalidateVerification();
     setStatus("Analyzing...");
     try {
       const res = await fetch("/api/repair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, language: $("language").value }),
+        body: JSON.stringify({ code, language }),
       });
       const data = await res.json();
+      if ($("code").value !== code || $("language").value !== language) {
+        setStatus("Input changed during verification. Analyze again.", true);
+        return;
+      }
       if (!res.ok) { setStatus(data.error || "Request failed", true); return; }
       renderDetection(data.detection);
       renderContext(data.context);
       renderRepair(data.repair, data.detection);
       renderCandidates(data.repair);
-      renderVerification(data);
+      renderVerification(data, language);
       setStatus(data.status === "VERIFIED" ? "Verified repair ready." : data.reason);
     } catch (e) {
       setStatus("Request failed: " + e, true);

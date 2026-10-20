@@ -67,6 +67,7 @@ def test_verification_timeout_is_inconclusive(monkeypatch):
 def test_real_http_repair_endpoint_and_ui():
     import json
     import threading
+    import urllib.error
     import urllib.request
     from http.server import ThreadingHTTPServer
     from dev_frontend.server import Handler
@@ -88,6 +89,16 @@ def test_real_http_repair_endpoint_and_ui():
         assert report["status"] == "VERIFIED"
         assert report["selected"]["verification_ran"]
         assert report["repaired_code"] == FIXED
+        invalid = urllib.request.Request(base + "/api/repair", data=json.dumps({
+            "code": BROKEN, "language": "python", "max_attempts": "many",
+        }).encode(), headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(invalid, timeout=5)
+        except urllib.error.HTTPError as response:
+            assert response.code == 400
+            assert "max_attempts" in json.load(response)["error"]
+        else:
+            raise AssertionError("invalid attempt budget was accepted")
     finally:
         server.shutdown()
         server.server_close()
