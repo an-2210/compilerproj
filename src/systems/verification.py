@@ -60,7 +60,7 @@ def verify_candidate(
 ) -> VerificationResult:
     """Static verification on a temporary copy. Source is never executed."""
     started = time.monotonic()
-    digest = source_hash(original)
+    digest = source_hash(original) if isinstance(original, str) else ""
     result = VerificationResult(status="REJECTED", reason="invalid candidate", candidate_id=candidate_id,
                                 original_hash=digest)
 
@@ -68,11 +68,11 @@ def verify_candidate(
         result.duration_ms = round((time.monotonic() - started) * 1000, 2)
         return result
 
-    if expected_hash is not None and expected_hash != digest:
-        result.reason = "stale original source hash"
-        return finish()
     if not isinstance(original, str) or not isinstance(candidate, str) or not original.strip() or not candidate.strip():
         result.reason = "source and candidate must be non-empty strings"
+        return finish()
+    if expected_hash is not None and expected_hash != digest:
+        result.reason = "stale original source hash"
         return finish()
     if len(original.encode("utf-8")) > MAX_SOURCE_BYTES or len(candidate.encode("utf-8")) > MAX_SOURCE_BYTES:
         result.reason = "source exceeds size limit"

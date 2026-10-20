@@ -23,6 +23,7 @@
 | `git fetch origin --dry-run` | Authentication failed: credential store unavailable and no interactive username prompt. Remote status/push/PR unverified. |
 
 | Final full suite after duplicate-selection test | Exit 0: 123 passed in 47.34 seconds, no skips. |
+| Final full suite after malformed-input guard | Exit 0: 124 passed in 41.07 seconds, no skips. |
 
 The final test command used system Python 3.12.3 with `PYTHONPATH` pointing at the ignored `.venv/Lib/site-packages` directory containing pyflakes. The initial attempt to install requirements in the virtual environment did not finish in this session; a clean virtual-environment installation remains to be validated on a normal machine.
 

@@ -30,6 +30,14 @@ def test_stale_hash_rejected_before_application():
     assert not result.patch_applied and not result.verification_ran
 
 
+def test_malformed_request_values_are_rejected_cleanly():
+    import pytest
+
+    assert verify_candidate(None, FIXED, "python").status == "REJECTED"
+    with pytest.raises(ValueError, match="max_attempts"):
+        run_pipeline(BROKEN, "python", max_attempts="many")
+
+
 def test_pipeline_selects_real_verified_candidate():
     report = run_pipeline(BROKEN, "python")
     assert report.status == "VERIFIED"

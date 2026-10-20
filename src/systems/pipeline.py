@@ -30,7 +30,7 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
                  provider: ModelProvider | None = None, include_model: bool = True) -> PipelineReport:
     if not isinstance(code, str) or not code.strip() or len(code.encode("utf-8")) > 100_000:
         raise ValueError("code must be non-empty and at most 100000 UTF-8 bytes")
-    if not 1 <= max_attempts <= 10:
+    if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or not 1 <= max_attempts <= 10:
         raise ValueError("max_attempts must be between 1 and 10")
     detection = detect(code, language, layers="fast")
     report = PipelineReport(status="NOT_REPAIRED", reason="no error detected", original_hash=source_hash(code),
