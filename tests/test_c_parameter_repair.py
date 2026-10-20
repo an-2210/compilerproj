@@ -9,6 +9,7 @@ import pytest
 
 from dev_frontend.server import Handler
 from src.analysis_engine import build_context, detect, rule_repair
+from src.analysis_engine.contracts import Diagnostic
 from src.data_engine.language_adapters import get_adapter
 from src.model.candidate_generator import analyze_and_repair
 from src.systems.pipeline import run_pipeline
@@ -32,6 +33,10 @@ FIXED = "#include <stdbool.h>\n#include <string.h>\n" + REPRO.replace(
     "const char *)", "const char *s)")
 
 
+def _normalize_gcc_quotes(message: str) -> str:
+    return message.translate(str.maketrans({"‘": "'", "’": "'"}))
+
+
 @pytest.fixture(autouse=True)
 def require_c_compiler():
     if not get_adapter("c").is_available():
@@ -41,8 +46,9 @@ def require_c_compiler():
 def test_exact_reproduction_names_parameter_and_verifies():
     source = REPRO
     report = run_pipeline(source, "c")
-    assert report.detection.root.message == "unknown type name 'bool'"
-    assert any("'s' undeclared" in d.message for d in report.detection.diagnostics)
+    assert _normalize_gcc_quotes(report.detection.root.message) == "unknown type name 'bool'"
+    assert any("'s' undeclared" in _normalize_gcc_quotes(d.message)
+               for d in report.detection.diagnostics)
     assert report.repair["chosen"]["rule_id"] == "c_unnamed_char_parameter"
     assert report.status == "VERIFIED" and report.repaired_code == FIXED
     assert report.selected.verification_ran and report.selected.tool_exit_code == 0
@@ -61,6 +67,26 @@ def test_named_parameter_rule_uses_compiler_evidence():
     report = run_pipeline(source, "c", include_model=False)
     assert report.status == "VERIFIED"
     assert "const char *s" in report.repaired_code
+
+
+def test_linux_gcc_diagnostics_without_omitted_parameter_message():
+    """The running image uses curly quotes and omits GCC's separate name error."""
+    diagnostics = [
+        Diagnostic(message="unknown type name ‘bool’", line=1, severity="error", source="gcc"),
+        Diagnostic(message="implicit declaration of function ‘strlen’", line=3,
+                   severity="error", source="gcc"),
+        Diagnostic(message="‘s’ undeclared (first use in this function)", line=3,
+                   severity="error", source="gcc"),
+        Diagnostic(message="‘false’ undeclared (first use in this function)", line=6,
+                   severity="error", source="gcc"),
+        Diagnostic(message="‘true’ undeclared (first use in this function)", line=11,
+                   severity="error", source="gcc"),
+    ]
+    context = build_context(REPRO, diagnostics[0], "c", diagnostics)
+    repair = rule_repair(context)
+    assert repair.chosen and repair.chosen.rule_id == "c_unnamed_char_parameter"
+    assert repair.chosen.code == FIXED
+    assert verify_candidate(REPRO, repair.chosen.code, "c").status == "VERIFIED"
 
 
 def test_ambiguous_or_weak_name_evidence_produces_no_rule():

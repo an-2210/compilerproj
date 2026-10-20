@@ -181,7 +181,11 @@ class GccClangBaseAdapter(LanguageAdapter):
 
             diagnostics.append(
                 DiagnosticMessage(
-                    message=match.group("msg").strip(),
+                    # GCC uses typographic quotes in some locales/builds. Keep
+                    # raw_text intact, but give downstream rules stable ASCII
+                    # punctuation for matching quoted tokens and identifiers.
+                    message=match.group("msg").strip().translate(
+                        str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})),
                     file=Path(match.group("file")).name,
                     line=int(match.group("line")),
                     column=int(match.group("col")),

@@ -4,7 +4,7 @@ This project detects Python, C and C++ errors, proposes local rule or mock-model
 
 ## Quick start
 
-Use Python 3.10+ with `python -m venv .venv`, activate the environment, then run `python -m pip install -r requirements.txt` in the `compilerproj` checkout. C and C++ require `gcc` and `g++` respectively for full compiler checks. The Python workflow uses AST, pyflakes, and an independent Python compile subprocess. `mypy` is an optional full-detection layer; the repair pipeline uses fast detection.
+Use Python 3.10+ with `python -m venv .venv`, activate the environment, then run `python -m pip install -r requirements.txt` in the `compilerproj` checkout. Use that same interpreter for `python -m pytest -q` and startup; `python -m pip show pyflakes` confirms the required package is present in it. C and C++ require `gcc` and `g++` respectively for full compiler checks. The Python workflow uses AST, required `pyflakes`, and an independent Python compile subprocess. `mypy` is an optional full-detection layer; the repair pipeline uses fast detection.
 
 Start the existing HTML UI and API together:
 

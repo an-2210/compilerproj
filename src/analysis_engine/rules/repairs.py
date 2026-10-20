@@ -480,7 +480,7 @@ def identifier_typo(ctx: ErrorContext) -> Iterator[Proposal]:
 
 
 def c_unnamed_char_parameter(ctx: ErrorContext) -> Iterator[Proposal]:
-    """Name one unnamed string parameter only when GCC and body uses agree.
+    """Name one unnamed string parameter only when compiler and body uses agree.
 
     This deliberately covers a single-line, single-parameter C definition. Multiple
     missing names or other undeclared identifiers make the inference ambiguous.
@@ -491,9 +491,10 @@ def c_unnamed_char_parameter(ctx: ErrorContext) -> Iterator[Proposal]:
     clean_lines = sanitized.split("\n")
     lines = _lines(ctx)
     errors = [d for d in ctx.diagnostics if d.severity == "error"]
+    # GCC can emit ASCII or typographic quotes; its Linux build may also omit
+    # the separate "parameter name omitted" diagnostic after an earlier error.
+    messages = [(d, d.message.replace("‘", "'").replace("’", "'")) for d in errors]
     for function, start, end, _params in function_spans(sanitized):
-        if not any(d.line == start and "parameter name omitted" in d.message for d in errors):
-            continue
         header = clean_lines[start - 1]
         if not re.fullmatch(
             rf"\s*(?:[A-Za-z_]\w*\s+)+\**\s*{re.escape(function)}\s*"
@@ -502,11 +503,11 @@ def c_unnamed_char_parameter(ctx: ErrorContext) -> Iterator[Proposal]:
             continue
         body = "\n".join(clean_lines[start:end])
         names = set()
-        for diag in errors:
+        for diag, message in messages:
             if diag.line is None or not start < diag.line <= end:
                 continue
-            match = (re.search(r"'([A-Za-z_]\w*)' undeclared", diag.message)
-                     or re.search(r"undeclared identifier '([A-Za-z_]\w*)'", diag.message))
+            match = (re.search(r"'([A-Za-z_]\w*)' undeclared", message)
+                     or re.search(r"undeclared identifier '([A-Za-z_]\w*)'", message))
             if match and match.group(1) not in _C_HEADER_FOR_SYMBOL:
                 names.add(match.group(1))
         if len(names) != 1:
@@ -520,14 +521,14 @@ def c_unnamed_char_parameter(ctx: ErrorContext) -> Iterator[Proposal]:
         changed_header = lines[start - 1][:pointer.end()] + name + lines[start - 1][pointer.end():]
         edits = [(start, changed_header)]
         headers = []
-        messages = [d.message for d in errors]
+        error_messages = [message for _diag, message in messages]
         if "stdbool.h" not in ctx.imports and any(
             "unknown type name 'bool'" in m or re.search(r"'(true|false)' undeclared", m)
-            for m in messages
+            for m in error_messages
         ):
             headers.append("#include <stdbool.h>")
         if "string.h" not in ctx.imports and any(
-            "implicit declaration of function 'strlen'" in m for m in messages
+            "implicit declaration of function 'strlen'" in m for m in error_messages
         ):
             headers.append("#include <string.h>")
         if headers:
