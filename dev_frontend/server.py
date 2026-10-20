@@ -50,7 +50,7 @@ def analyze(code: str, language: str) -> Dict[str, Any]:
     if detection.root is None:
         return payload
 
-    context = build_context(code, detection.root, language)
+    context = build_context(code, detection.root, language, detection.diagnostics)
     repair = rule_repair(context)
     payload["context"] = context.model_dump(exclude={"code"})
     payload["repair"] = repair.model_dump()

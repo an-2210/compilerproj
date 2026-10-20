@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from typing import Callable, Iterator, List, Optional, Tuple
 
 from src.analysis_engine.contracts import ErrorContext
+from src.analysis_engine.context.c_context import function_spans
 from src.analysis_engine.context.line_mapping import lacks_terminator
-from src.analysis_engine.context.scanner import OPENERS, code_part, indent_of
+from src.analysis_engine.context.scanner import OPENERS, code_part, indent_of, sanitize
 
 
 # (1-indexed line number, replacement text for that line; may contain "\n")
@@ -478,6 +479,69 @@ def identifier_typo(ctx: ErrorContext) -> Iterator[Proposal]:
                        [(k, _replace_word(line, name, match))], round(0.3 + 0.5 * ratio, 3))
 
 
+def c_unnamed_char_parameter(ctx: ErrorContext) -> Iterator[Proposal]:
+    """Name one unnamed string parameter only when GCC and body uses agree.
+
+    This deliberately covers a single-line, single-parameter C definition. Multiple
+    missing names or other undeclared identifiers make the inference ambiguous.
+    """
+    if ctx.language != "c":
+        return
+    sanitized = sanitize(ctx.code, "c")
+    clean_lines = sanitized.split("\n")
+    lines = _lines(ctx)
+    errors = [d for d in ctx.diagnostics if d.severity == "error"]
+    for function, start, end, _params in function_spans(sanitized):
+        if not any(d.line == start and "parameter name omitted" in d.message for d in errors):
+            continue
+        header = clean_lines[start - 1]
+        if not re.fullmatch(
+            rf"\s*(?:[A-Za-z_]\w*\s+)+\**\s*{re.escape(function)}\s*"
+            r"\(\s*const\s+char\s*\*\s*\)\s*\{\s*", header,
+        ):
+            continue
+        body = "\n".join(clean_lines[start:end])
+        names = set()
+        for diag in errors:
+            if diag.line is None or not start < diag.line <= end:
+                continue
+            match = (re.search(r"'([A-Za-z_]\w*)' undeclared", diag.message)
+                     or re.search(r"undeclared identifier '([A-Za-z_]\w*)'", diag.message))
+            if match and match.group(1) not in _C_HEADER_FOR_SYMBOL:
+                names.add(match.group(1))
+        if len(names) != 1:
+            continue
+        name = names.pop()
+        if name in ctx.symbols or len(re.findall(rf"\b{re.escape(name)}\b", body)) < 2:
+            continue
+        pointer = re.search(r"const\s+char\s*\*", header)
+        if pointer is None:
+            continue
+        changed_header = lines[start - 1][:pointer.end()] + name + lines[start - 1][pointer.end():]
+        edits = [(start, changed_header)]
+        headers = []
+        messages = [d.message for d in errors]
+        if "stdbool.h" not in ctx.imports and any(
+            "unknown type name 'bool'" in m or re.search(r"'(true|false)' undeclared", m)
+            for m in messages
+        ):
+            headers.append("#include <stdbool.h>")
+        if "string.h" not in ctx.imports and any(
+            "implicit declaration of function 'strlen'" in m for m in messages
+        ):
+            headers.append("#include <string.h>")
+        if headers:
+            prefix = "\n".join(headers) + "\n"
+            if start == 1:
+                edits = [(1, prefix + changed_header)]
+            else:
+                edits.append((1, prefix + lines[0]))
+        description = f"name unnamed const char * parameter '{name}' from repeated body uses"
+        if headers:
+            description += " and include compiler-indicated headers"
+        yield Proposal("c_unnamed_char_parameter", description, edits, 0.95)
+
+
 # ------------------------------------------------------------- Imports and headers
 
 def missing_import_python(ctx: ErrorContext) -> Iterator[Proposal]:
@@ -533,6 +597,7 @@ RULES: List[RuleFn] = [
     insert_comma,
     extra_argument_removal,
     closing_brace_restore,
+    c_unnamed_char_parameter,
     identifier_typo,
     missing_import_python,
     missing_include_c,

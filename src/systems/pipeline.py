@@ -37,7 +37,7 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
                             detection=detection)
     if detection.root is None:
         return report
-    context = build_context(code, detection.root, language)
+    context = build_context(code, detection.root, language, detection.diagnostics)
     report.context = context.model_dump(exclude={"code"})
     rules = rule_repair(context)
     report.repair = rules.model_dump()
@@ -71,7 +71,7 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
         if len(report.attempts) >= max_attempts:
             break
     if not report.attempts:
-        report.reason = report.generation_error or "no distinct repair candidate generated"
+        report.reason = report.generation_error or "no safe distinct repair candidate available for these diagnostics"
     elif any(a.status == "INCONCLUSIVE" for a in report.attempts):
         report.status = "INCONCLUSIVE"
         report.reason = "verification could not complete for every attempt"

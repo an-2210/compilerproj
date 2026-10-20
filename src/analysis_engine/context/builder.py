@@ -1,12 +1,15 @@
 """Build an ErrorContext from source code and its root diagnostic."""
 
+from typing import List, Optional
+
 from src.analysis_engine.contracts import Diagnostic, ErrorContext
 from src.analysis_engine.context import c_context, python_context
 from src.analysis_engine.context.line_mapping import candidate_lines
 from src.analysis_engine.detect.detector import normalize_language
 
 
-def build_context(code: str, root: Diagnostic, language: str) -> ErrorContext:
+def build_context(code: str, root: Diagnostic, language: str,
+                  diagnostics: Optional[List[Diagnostic]] = None) -> ErrorContext:
     """Collect scope, symbols, brackets and candidate lines for one detected error.
 
     `root` is the root diagnostic from `detect()`. If the compiler reported a line
@@ -32,6 +35,7 @@ def build_context(code: str, root: Diagnostic, language: str) -> ErrorContext:
         language=lang,
         code=code,
         root=root,
+        diagnostics=diagnostics if diagnostics is not None else [root],
         reported_line=reported,
         candidate_lines=candidate_lines(
             lines, reported, root, lang,

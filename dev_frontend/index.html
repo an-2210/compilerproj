@@ -305,10 +305,11 @@
     if (!r) { box.append(el("span", "No detected error, so no repair attempted.", "muted")); return; }
     if (!r.applicable) {
       box.append(badge("no rule applies", "warn"));
+      box.append(el("p", "No deterministic rule has enough evidence for this error. Review the verification attempts below; an unverified suggestion is not a fix.", "muted"));
       return;
     }
     const chosen = r.chosen;
-    box.append(badge(chosen && chosen.compiles ? "rule precheck passed" : "rule precheck failed", chosen && chosen.compiles ? "ok" : "bad"));
+    box.append(badge(chosen && chosen.compiles ? "rule precheck passed (not accepted yet)" : "rule precheck failed", chosen && chosen.compiles ? "ok" : "bad"));
     box.append(badge(`${r.rule_candidates.length} candidates`, ""));
     box.append(kv([
       ["chosen rule", chosen ? chosen.rule_id : null],
@@ -328,7 +329,7 @@
   function renderCandidates(r) {
     const box = $("candidates");
     box.replaceChildren();
-    if (!r || !r.rule_candidates.length) { box.append(el("span", "No candidates.", "muted")); return; }
+    if (!r || !r.rule_candidates.length) { box.append(el("span", "No deterministic rule candidates; see verification attempts and their diffs below.", "muted")); return; }
     const table = el("table");
     const head = el("tr");
     ["#", "rule", "line", "confidence", "rule precheck", "description"].forEach((h) => head.append(el("th", h)));

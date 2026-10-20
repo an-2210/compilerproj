@@ -55,6 +55,8 @@ class ErrorContext(BaseModel):
     language: str
     code: str
     root: Diagnostic
+    # Full compiler evidence, including errors after the ranked root.
+    diagnostics: List[Diagnostic] = Field(default_factory=list)
     # The line the compiler reported, clamped to the file
     reported_line: int = Field(ge=1)
     # Ranked guesses for the line that actually holds the mistake, best first
