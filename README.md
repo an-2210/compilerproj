@@ -1,4 +1,6 @@
-# AI-Based Compiler Error Detection & Repair — Data Engineering Pipeline
+# AI-Based Compiler Error Detection & Repair
+
+The integrated application, verification workflow, and demonstration are documented in [GUIDE.md](GUIDE.md), [INSTRUCTION.md](INSTRUCTION.md), and [EXPLANATION.md](EXPLANATION.md). Run `python dev_frontend/server.py` from this directory to open the existing UI at `http://127.0.0.1:8765/`. The remainder of this README describes the Data Engineer component.
 
 A robust, reproducible, and compiler-grounded Data Engineering system designed for the **DETECT -> EXPLAIN -> REPAIR -> VERIFY** intelligent debugging pipeline.
 

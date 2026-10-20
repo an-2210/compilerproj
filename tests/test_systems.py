@@ -54,3 +54,45 @@ def test_verification_timeout_is_inconclusive(monkeypatch):
     result = verify_candidate(BROKEN, FIXED, "python")
     assert result.status == "INCONCLUSIVE"
     assert result.patch_applied
+
+
+def test_real_http_repair_endpoint_and_ui():
+    import json
+    import threading
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+    from dev_frontend.server import Handler
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        with urllib.request.urlopen(base + "/health", timeout=5) as response:
+            assert json.load(response)["status"] == "ok"
+        with urllib.request.urlopen(base + "/", timeout=5) as response:
+            assert b"Verification and attempt history" in response.read()
+        body = json.dumps({"code": BROKEN, "language": "python"}).encode()
+        request = urllib.request.Request(base + "/api/repair", data=body,
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            report = json.load(response)
+        assert report["status"] == "VERIFIED"
+        assert report["selected"]["verification_ran"]
+        assert report["repaired_code"] == FIXED
+    finally:
+        server.shutdown()
+        server.server_close()
+        worker.join(timeout=5)
+
+
+def test_c_compiler_exit_code_when_available():
+    import pytest
+    from src.data_engine.language_adapters import get_adapter
+
+    adapter = get_adapter("c")
+    if not adapter.is_available():
+        pytest.skip("C compiler unavailable")
+    result = verify_candidate("int main(){return 0}", "int main(){return 0;}", "c")
+    assert result.status == "VERIFIED"
+    assert result.tool_exit_code == 0 and result.verification_ran

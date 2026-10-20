@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from src.analysis_engine.contracts import Diagnostic
 from src.analysis_engine.detect.detector import detect, normalize_language
+from src.data_engine.language_adapters import get_adapter
 
 MAX_SOURCE_BYTES = 100_000
 MAX_CHANGED_LINES = 30
@@ -118,12 +119,23 @@ def verify_candidate(
                 result.stdout = proc.stdout[:8192]
                 result.stderr = proc.stderr[:8192]
                 result.verification_ran = True
+            if lang != "python":
+                # Retain the actual adapter exit code and bounded raw output.
+                compile_result = get_adapter(lang).compile_or_parse(candidate, timeout_seconds=timeout_seconds)
+                result.tool_exit_code = compile_result.exit_code
+                result.stdout = compile_result.stdout[:8192]
+                result.stderr = compile_result.stderr[:8192]
+                result.verification_ran = True
+                if compile_result.exit_code == -99:
+                    result.status = "INCONCLUSIVE"
+                    result.reason = "compiler timed out"
+                    return finish()
+                if not compile_result.compiler_available and compile_result.tool_name != "pycparser":
+                    result.status = "INCONCLUSIVE"
+                    result.reason = "compiler unavailable"
+                    return finish()
             candidate_detection = detect(candidate, lang, layers="fast")
             result.candidate_diagnostics = candidate_detection.diagnostics
-            if lang != "python":
-                # C/C++ detection invokes the real compiler through the existing adapter.
-                result.verification_ran = True
-                result.tool_exit_code = 1 if candidate_detection.detected else 0
     except (subprocess.TimeoutExpired, TimeoutError) as exc:
         result.status = "INCONCLUSIVE"
         result.reason = f"verification timed out: {type(exc).__name__}"

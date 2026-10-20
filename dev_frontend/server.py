@@ -14,6 +14,7 @@ Engineer). It serves only on 127.0.0.1.
 """
 
 import json
+import os
 import sys
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,7 +30,8 @@ from src.systems import run_pipeline  # noqa: E402
 PAGE = Path(__file__).resolve().parent / "index.html"
 SAMPLE_FILES = ["data/splits/test.jsonl", "data/splits/real_test.jsonl", "data/splits/val.jsonl"]
 MAX_CODE_CHARS = 20_000
-HOST, PORT = "127.0.0.1", 8765
+HOST = os.environ.get("APP_HOST", "127.0.0.1")
+PORT = int(os.environ.get("APP_PORT", "8765"))
 
 
 def analyze(code: str, language: str) -> Dict[str, Any]:
