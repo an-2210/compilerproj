@@ -297,3 +297,17 @@ python -m pytest tests
 - **Training:** Train models strictly on `train.jsonl` and evaluate checkpoints on `val.jsonl`.
 - **Evaluation:** Benchmark models on `test.jsonl` (synthetic test set) and `real_test.jsonl` (real-world bug evaluation).
 - **Prohibited:** Never train on `real_test.jsonl` or `test.jsonl`.
+
+---
+
+## 12. Analysis Engineer Layer (DETECT, CONTEXT, RULE REPAIR)
+
+The `src/analysis_engine/` package reads the dataset records and provides `detect`, `build_context` and
+`rule_repair`, plus the published contracts (`Diagnostic`, `DetectionResult`, `ErrorContext`,
+`RepairCandidate`, `RepairResult`). Setup, the compiler note for macOS, evaluation, and the dev frontend
+are in [docs/analysis_engineer.md](docs/analysis_engineer.md).
+
+```bash
+python scripts/evaluate_analysis.py     # writes reports/analysis_eval.json and reports/analysis_summary.md
+python3 dev_frontend/server.py          # test page at http://127.0.0.1:8765
+```

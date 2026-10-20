@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analysis Dev Frontend</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5b6573;
+    --line: #d9dee5; --accent: #2456d6; --ok: #1a7f37; --bad: #b42318; --warn: #9a6700;
+    --code-bg: #0f1419; --code-ink: #e6edf3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #9aa4b2;
+      --line: #30363d; --accent: #6ea8ff; --ok: #3fb950; --bad: #ff7b72; --warn: #d29922;
+      --code-bg: #010409; --code-ink: #e6edf3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #9aa4b2;
+    --line: #30363d; --accent: #6ea8ff; --ok: #3fb950; --bad: #ff7b72; --warn: #d29922;
+    --code-bg: #010409; --code-ink: #e6edf3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { padding: 16px; display: grid; gap: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (min-width: 900px) { main { grid-template-columns: 1fr 1fr; } .wide { grid-column: 1 / -1; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+  h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  select, textarea, button { font: inherit; }
+  select { width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 6px;
+           background: var(--bg); color: var(--ink); margin-bottom: 10px; }
+  textarea { width: 100%; min-height: 240px; padding: 10px; border-radius: 6px; border: 1px solid var(--line);
+             background: var(--code-bg); color: var(--code-ink); font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace;
+             resize: vertical; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent);
+           color: #fff; cursor: pointer; font-weight: 600; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .status { color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+           border: 1px solid var(--line); margin-right: 4px; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td.mono, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  pre { margin: 0; padding: 10px; background: var(--code-bg); color: var(--code-ink); border-radius: 6px;
+        overflow: auto; font: 12.5px/1.45 ui-monospace, Menlo, Consolas, monospace; max-height: 340px; }
+  .chips span { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 6px;
+                background: var(--bg); border: 1px solid var(--line); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .muted { color: var(--muted); }
+  .error { color: var(--bad); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .lines { margin-top: 8px; }
+  .hl { background: rgba(210, 153, 34, .25); display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Analysis Engineer: dev frontend</h1>
+  <p>Detect, build context and propose rule-based repairs. Paste code or pick a sample from the dataset splits.</p>
+</header>
+
+<main>
+  <section>
+    <h2>Input</h2>
+    <label for="sample">Sample from splits (optional)</label>
+    <select id="sample"><option value="">— choose a sample —</option></select>
+
+    <label for="language">Language</label>
+    <select id="language">
+      <option value="python">Python</option>
+      <option value="c">C</option>
+      <option value="cpp">C++</option>
+    </select>
+
+    <label for="code">Code</label>
+    <textarea id="code" spellcheck="false" placeholder="Paste a program here..."></textarea>
+
+    <div class="row">
+      <button id="analyze">Analyze</button>
+      <button id="clear" class="secondary" type="button">Clear</button>
+      <span id="status" class="status"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Detection</h2>
+    <div id="detection"><span class="muted">Nothing analyzed yet.</span></div>
+  </section>
+
+  <section>
+    <h2>Context</h2>
+    <div id="context"><span class="muted">Context appears after a detected error.</span></div>
+  </section>
+
+  <section>
+    <h2>Repair</h2>
+    <div id="repair"><span class="muted">Repair appears after a detected error.</span></div>
+  </section>
+
+  <section class="wide">
+    <h2>Candidate fixes</h2>
+    <div id="candidates" class="scroll"><span class="muted">None yet.</span></div>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let samples = [];
+
+  function el(tag, text, cls) {
+    const node = document.createElement(tag);
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    if (cls) node.className = cls;
+    return node;
+  }
+
+  function badge(text, kind) { return el("span", text, "badge " + (kind || "")); }
+
+  function kv(pairs) {
+    const wrap = el("div", null, "kv");
+    for (const [k, v] of pairs) { wrap.append(el("div", k)); wrap.append(el("div", v === null || v === undefined ? "—" : v, "mono")); }
+    return wrap;
+  }
+
+  function setStatus(text, isError) {
+    const s = $("status");
+    s.textContent = text || "";
+    s.className = isError ? "status error" : "status";
+  }
+
+  async function loadSamples() {
+    try {
+      const res = await fetch("/api/samples");
+      samples = await res.json();
+    } catch (e) {
+      setStatus("Could not load samples: " + e, true);
+      return;
+    }
+    const select = $("sample");
+    for (const s of samples) {
+      const opt = el("option", `${s.id}  [${s.split}, ${s.language}, ${s.operator}]`);
+      opt.value = s.id;
+      select.append(opt);
+    }
+  }
+
+  $("sample").addEventListener("change", (ev) => {
+    const s = samples.find((x) => x.id === ev.target.value);
+    if (!s) return;
+    $("code").value = s.mutated_code;
+    $("language").value = s.language;
+  });
+
+  $("clear").addEventListener("click", () => {
+    $("code").value = "";
+    $("sample").value = "";
+    setStatus("");
+  });
+
+  function renderDetection(d) {
+    const box = $("detection");
+    box.replaceChildren();
+    box.append(badge(d.detected ? "error detected" : "clean", d.detected ? "bad" : "ok"));
+    if (d.layer) box.append(badge("layer: " + d.layer, "warn"));
+    box.append(kv([
+      ["language", d.language],
+      ["tool", d.tool_version],
+      ["root error", d.root ? `line ${d.root.line ?? "?"}, col ${d.root.column ?? "?"}` : null],
+      ["message", d.root ? d.root.message : null],
+      ["category", d.root ? `${d.root.category} / ${d.root.subcategory}` : null],
+      ["cascades suppressed", d.cascades.length],
+    ]));
+    if (d.diagnostics.length) {
+      const table = el("table");
+      const head = el("tr");
+      ["line", "col", "severity", "source", "message"].forEach((h) => head.append(el("th", h)));
+      table.append(head);
+      for (const diag of d.diagnostics) {
+        const tr = el("tr");
+        tr.append(el("td", diag.line ?? "—", "mono"));
+        tr.append(el("td", diag.column ?? "—", "mono"));
+        tr.append(el("td", diag.severity));
+        tr.append(el("td", diag.source, "mono"));
+        tr.append(el("td", diag.message));
+        table.append(tr);
+      }
+      const wrap = el("div", null, "scroll");
+      wrap.style.marginTop = "10px";
+      wrap.append(table);
+      box.append(wrap);
+    }
+  }
+
+  function renderContext(c) {
+    const box = $("context");
+    box.replaceChildren();
+    if (!c) { box.append(el("span", "No detected error, so no context.", "muted")); return; }
+    box.append(kv([
+      ["reported line", c.reported_line],
+      ["candidate lines", c.candidate_lines.join(", ")],
+      ["enclosing scope", c.enclosing_scope],
+      ["indent of line", c.indent_of_line],
+      ["enclosing indents", c.enclosing_indents.join(", ") || null],
+      ["unclosed at EOF", c.unclosed_at_eof.map((b) => `${b.char}@${b.line}:${b.column}`).join("  ") || null],
+      ["open at line", c.open_brackets.map((b) => `${b.char}@${b.line}:${b.column}`).join("  ") || null],
+      ["imports", c.imports.join(", ") || null],
+    ]));
+    const label = el("div", "Symbols", "muted");
+    label.style.margin = "10px 0 4px";
+    box.append(label);
+    const chips = el("div", null, "chips");
+    for (const name of c.symbols) chips.append(el("span", name));
+    if (!c.symbols.length) chips.append(el("span", "none"));
+    box.append(chips);
+
+    const lines = el("div", null, "lines");
+    const lineNo = c.reported_line;
+    const rows = [
+      [lineNo - 1, c.prev_line_text], [lineNo, c.line_text], [lineNo + 1, c.next_line_text],
+    ];
+    const pre = el("pre");
+    for (const [n, text] of rows) {
+      if (text === null || text === undefined) continue;
+      const row = el("span", `${String(n).padStart(4)}  ${text}`);
+      if (n === lineNo) row.className = "hl";
+      pre.append(row, "\n");
+    }
+    lines.append(el("div", "Reported line in context", "muted"), pre);
+    box.append(lines);
+  }
+
+  function renderRepair(r, d) {
+    const box = $("repair");
+    box.replaceChildren();
+    if (!r) { box.append(el("span", "No detected error, so no repair attempted.", "muted")); return; }
+    if (!r.applicable) {
+      box.append(badge("no rule applies", "warn"));
+      return;
+    }
+    const chosen = r.chosen;
+    box.append(badge(chosen && chosen.compiles ? "compiles after fix" : "no candidate compiles", chosen && chosen.compiles ? "ok" : "bad"));
+    box.append(badge(`${r.rule_candidates.length} candidates`, ""));
+    box.append(kv([
+      ["chosen rule", chosen ? chosen.rule_id : null],
+      ["description", chosen ? chosen.description : null],
+      ["confidence", chosen ? chosen.confidence : null],
+    ]));
+    if (chosen) {
+      const label = el("div", "Patched program", "muted");
+      label.style.margin = "10px 0 4px";
+      box.append(label);
+      const pre = el("pre");
+      pre.textContent = chosen.code;
+      box.append(pre);
+    }
+  }
+
+  function renderCandidates(r) {
+    const box = $("candidates");
+    box.replaceChildren();
+    if (!r || !r.rule_candidates.length) { box.append(el("span", "No candidates.", "muted")); return; }
+    const table = el("table");
+    const head = el("tr");
+    ["#", "rule", "line", "confidence", "compiles", "description"].forEach((h) => head.append(el("th", h)));
+    table.append(head);
+    r.rule_candidates.forEach((c, i) => {
+      const tr = el("tr");
+      tr.append(el("td", i + 1, "mono"));
+      tr.append(el("td", c.rule_id, "mono"));
+      tr.append(el("td", c.line, "mono"));
+      tr.append(el("td", c.confidence, "mono"));
+      tr.append(el("td", c.compiles ? "yes" : "no", c.compiles ? "ok" : "error"));
+      tr.append(el("td", c.description));
+      table.append(tr);
+    });
+    box.append(table);
+  }
+
+  $("analyze").addEventListener("click", async () => {
+    const code = $("code").value;
+    if (!code.trim()) { setStatus("Paste some code or choose a sample first.", true); return; }
+    const button = $("analyze");
+    button.disabled = true;
+    setStatus("Analyzing...");
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, language: $("language").value }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setStatus(data.error || "Request failed", true); return; }
+      renderDetection(data.detection);
+      renderContext(data.context);
+      renderRepair(data.repair, data.detection);
+      renderCandidates(data.repair);
+      setStatus(data.detection.detected ? "Done." : "Clean: no error detected.");
+    } catch (e) {
+      setStatus("Request failed: " + e, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  loadSamples();
+</script>
+</body>
+</html>
