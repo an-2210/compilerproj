@@ -69,8 +69,8 @@
 </head>
 <body>
 <header>
-  <h1>Analysis Engineer: dev frontend</h1>
-  <p>Detect, build context and propose rule-based repairs. Paste code or pick a sample from the dataset splits.</p>
+  <h1>Compiler error detection and repair</h1>
+  <p>Detect errors, inspect candidate repairs, and review independent verification.</p>
 </header>
 
 <main>
@@ -90,7 +90,7 @@
     <textarea id="code" spellcheck="false" placeholder="Paste a program here..."></textarea>
 
     <div class="row">
-      <button id="analyze">Analyze</button>
+      <button id="analyze">Analyze and verify</button>
       <button id="clear" class="secondary" type="button">Clear</button>
       <span id="status" class="status"></span>
     </div>
@@ -115,11 +115,17 @@
     <h2>Candidate fixes</h2>
     <div id="candidates" class="scroll"><span class="muted">None yet.</span></div>
   </section>
+  <section class="wide">
+    <h2>Verification and attempt history</h2>
+    <div id="verification"><span class="muted">No verification yet.</span></div>
+    <div class="row"><button id="download" class="secondary" type="button" hidden>Download verified repair</button></div>
+  </section>
 </main>
 
 <script>
   const $ = (id) => document.getElementById(id);
   let samples = [];
+  let verifiedCode = null;
 
   function el(tag, text, cls) {
     const node = document.createElement(tag);
@@ -169,7 +175,40 @@
     $("code").value = "";
     $("sample").value = "";
     setStatus("");
+    verifiedCode = null;
+    $("download").hidden = true;
   });
+
+  $("download").addEventListener("click", () => {
+    if (verifiedCode === null) return;
+    const blob = new Blob([verifiedCode], {type: "text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = el("a");
+    a.href = url;
+    a.download = $("language").value === "python" ? "repaired.py" : ($("language").value === "cpp" ? "repaired.cpp" : "repaired.c");
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  function renderVerification(data) {
+    const box = $("verification");
+    box.replaceChildren();
+    box.append(badge(data.status, data.status === "VERIFIED" ? "ok" : "bad"));
+    box.append(kv([["reason", data.reason], ["attempts", data.attempts.length],
+                   ["generation", data.generation_error || "completed"]]));
+    for (const attempt of data.attempts) {
+      const title = el("div", `${attempt.candidate_id}: ${attempt.status} — ${attempt.reason}`, "muted");
+      title.style.margin = "12px 0 4px";
+      box.append(title);
+      box.append(kv([["tool ran", attempt.verification_ran], ["exit code", attempt.tool_exit_code],
+                     ["target resolved", attempt.target_resolved], ["new errors", attempt.new_diagnostics.length],
+                     ["changed lines", attempt.changed_lines], ["duration (ms)", attempt.duration_ms]]));
+      if (attempt.diff) box.append(el("pre", attempt.diff));
+      if (attempt.stderr && attempt.status === "INCONCLUSIVE") box.append(el("pre", attempt.stderr));
+    }
+    verifiedCode = data.status === "VERIFIED" ? data.repaired_code : null;
+    $("download").hidden = verifiedCode === null;
+  }
 
   function renderDetection(d) {
     const box = $("detection");
@@ -297,7 +336,7 @@
     button.disabled = true;
     setStatus("Analyzing...");
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch("/api/repair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, language: $("language").value }),
@@ -308,7 +347,8 @@
       renderContext(data.context);
       renderRepair(data.repair, data.detection);
       renderCandidates(data.repair);
-      setStatus(data.detection.detected ? "Done." : "Clean: no error detected.");
+      renderVerification(data);
+      setStatus(data.status === "VERIFIED" ? "Verified repair ready." : data.reason);
     } catch (e) {
       setStatus("Request failed: " + e, true);
     } finally {

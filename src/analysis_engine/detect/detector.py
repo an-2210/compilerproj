@@ -100,7 +100,11 @@ def _run_pyflakes(tree: ast.AST) -> List[Diagnostic]:
 
 
 def _run_mypy(code: str) -> List[Diagnostic]:
-    import mypy.api
+    try:
+        import mypy.api
+    except ImportError:
+        # Type checking is an optional layer; AST and pyflakes have already run.
+        return []
 
     found = []
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -113,7 +117,7 @@ def _run_mypy(code: str) -> List[Diagnostic]:
             "--show-column-numbers",
             "--show-error-codes",
             "--no-incremental",
-            "--cache-dir=/dev/null",
+            f"--cache-dir={Path(tmpdir) / 'mypy-cache'}",
             "--follow-imports=skip",
         ])
     for raw_line in stdout.splitlines():
