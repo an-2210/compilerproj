@@ -96,3 +96,22 @@ def test_c_compiler_exit_code_when_available():
     result = verify_candidate("int main(){return 0}", "int main(){return 0;}", "c")
     assert result.status == "VERIFIED"
     assert result.tool_exit_code == 0 and result.verification_ran
+
+
+def test_pipeline_skips_duplicate_and_selects_later_verified_candidate(monkeypatch):
+    from types import SimpleNamespace
+    from src.analysis_engine.contracts import RepairCandidate, RepairResult
+    import src.systems.pipeline as pipeline
+
+    regressive = RepairCandidate(rule_id="bad", description="bad", line=1,
+                                 confidence=0.9, code="def add(a, b):\n    return a +\n", compiles=False)
+    monkeypatch.setattr(pipeline, "rule_repair", lambda ctx: RepairResult(
+        rule_candidates=[regressive, regressive], chosen=regressive, applicable=True))
+    monkeypatch.setattr(pipeline, "analyze_and_repair", lambda *args, **kwargs: [
+        SimpleNamespace(candidate_id="duplicate", repaired_code=regressive.code),
+        SimpleNamespace(candidate_id="good", repaired_code=FIXED),
+    ])
+    report = run_pipeline(BROKEN, "python", max_attempts=3)
+    assert report.status == "VERIFIED"
+    assert [a.candidate_id for a in report.attempts] == ["rule_bad", "good"]
+    assert report.attempts[0].status == "REJECTED"
