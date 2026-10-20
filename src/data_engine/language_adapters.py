@@ -325,7 +325,10 @@ class CAdapter(GccClangBaseAdapter):
         extra_flags: Optional[List[str]] = None,
     ) -> CompilationResult:
         if self.is_available():
-            return super().compile_or_parse(source, timeout_seconds, extra_flags)
+            flags = ["-Werror=implicit-function-declaration"]
+            if extra_flags:
+                flags.extend(extra_flags)
+            return super().compile_or_parse(source, timeout_seconds, flags)
         
         # Pycparser fallback when GCC is not installed
         return self._pycparser_fallback(source)
