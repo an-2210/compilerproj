@@ -34,6 +34,8 @@ The exact output includes `detection`, `context`, `repair`, `attempts`, `selecte
 
 The outer pipeline may say `NOT_REPAIRED` while a particular attempt says `REJECTED`. Only the outer `VERIFIED` status includes downloadable repaired source. Compare the changed lines and explanation before using it.
 
+For a C function defined with a single unnamed `const char *` parameter, the rule engine can infer its name only when compiler diagnostics identify one undeclared body identifier and the body uses that identifier repeatedly. For example, `bool is_palindrome(const char *)` with repeated `s` references is repaired to `bool is_palindrome(const char *s)`; if the compiler also reports missing declarations for `bool` and `strlen`, the candidate adds their standard headers. Ambiguous or weak evidence produces no parameter-name rule. Every candidate still needs independent compiler verification before download.
+
 ## Tests and repository map
 
 Run `python -m pytest -q`. `src/data_engine` owns fixtures and compiler adapters, `src/analysis_engine` owns detection and rules, `src/model` owns optional candidate generation, `src/systems` owns verification and selection, and `dev_frontend` owns the API and UI. `tests/test_systems.py` covers the real static path and HTTP route. Related details are in `docs/INTERFACES.md`, `docs/REPOSITORY_AUDIT.md`, `INSTRUCTION.md` and `EXPLANATION.md`.
