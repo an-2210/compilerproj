@@ -10,6 +10,7 @@ from src.analysis_engine import build_context, detect, rule_repair
 from src.analysis_engine.contracts import DetectionResult
 from src.model.candidate_generator import analyze_and_repair
 from src.model.repair_model import ModelProvider
+from .explanation import generate_beginner_explanation
 from .verification import VerificationResult, source_hash, verify_candidate
 
 
@@ -24,6 +25,7 @@ class PipelineReport(BaseModel):
     selected: VerificationResult | None = None
     repaired_code: str | None = None
     generation_error: str | None = None
+    explanation: dict[str, Any] | None = None
 
 
 def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
@@ -35,8 +37,23 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
     detection = detect(code, language, layers="fast")
     report = PipelineReport(status="NOT_REPAIRED", reason="no error detected", original_hash=source_hash(code),
                             detection=detection)
+
+    def _finalize(rep: PipelineReport) -> PipelineReport:
+        rep.explanation = generate_beginner_explanation(
+            rep.status,
+            rep.reason,
+            rep.detection,
+            code,
+            language,
+            context=rep.context,
+            repair=rep.repair,
+            selected=rep.selected,
+            repaired_code=rep.repaired_code,
+        )
+        return rep
+
     if detection.root is None:
-        return report
+        return _finalize(report)
     context = build_context(code, detection.root, language, detection.diagnostics)
     report.context = context.model_dump(exclude={"code"})
     rules = rule_repair(context)
@@ -67,7 +84,7 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
             report.reason = result.reason
             report.selected = result
             report.repaired_code = candidate_code
-            return report
+            return _finalize(report)
         if len(report.attempts) >= max_attempts:
             break
     if not report.attempts:
@@ -77,4 +94,4 @@ def run_pipeline(code: str, language: str, *, max_attempts: int = 3,
         report.reason = "verification could not complete for every attempt"
     else:
         report.reason = "no candidate passed verification within attempt budget"
-    return report
+    return _finalize(report)

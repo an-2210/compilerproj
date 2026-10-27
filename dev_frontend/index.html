@@ -65,6 +65,21 @@
   .scroll { overflow-x: auto; }
   .lines { margin-top: 8px; }
   .hl { background: rgba(210, 153, 34, .25); display: block; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab-btn { padding: 6px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-weight: 500; }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .drop-box { border: 2px dashed var(--line); border-radius: 6px; padding: 14px; text-align: center; background: var(--bg); margin-bottom: 12px; transition: border-color .15s ease; }
+  .drop-box.dragover { border-color: var(--accent); background: rgba(36, 86, 214, .05); }
+  .file-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); padding: 4px 10px; border-radius: 6px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .small-btn { padding: 2px 6px; font-size: 11px; border-radius: 4px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+  .small-btn:hover { color: var(--bad); border-color: var(--bad); }
+  .exp-grid { display: grid; gap: 12px; margin-top: 8px; }
+  .exp-card { border-radius: 6px; padding: 12px 14px; border: 1px solid var(--line); }
+  .exp-card.err { border-color: var(--bad); background: rgba(180, 35, 24, .04); }
+  .exp-card.fix { border-color: var(--accent); background: rgba(36, 86, 214, .04); }
+  .exp-card.why { border-color: var(--warn); background: rgba(154, 103, 0, .04); }
+  .exp-card.code { border-color: var(--ok); background: rgba(26, 127, 55, .04); }
+  .exp-card h3 { margin: 0 0 6px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
 <body>
@@ -76,8 +91,32 @@
 <main>
   <section>
     <h2>Input</h2>
-    <label for="sample">Sample from splits (optional)</label>
-    <select id="sample"><option value="">— choose a sample —</option></select>
+    <div class="tabs">
+      <button type="button" id="tab-paste" class="tab-btn active">📋 Paste Code</button>
+      <button type="button" id="tab-file" class="tab-btn">📁 Import File</button>
+      <button type="button" id="tab-preset" class="tab-btn">📚 Preset Code</button>
+    </div>
+
+    <div id="file-panel" style="display:none;">
+      <div class="drop-box" id="drop-box">
+        <input type="file" id="file-input" accept=".c,.cpp,.cc,.cxx,.h,.hpp,.java,.py,.txt" style="display:none">
+        <button type="button" id="browse-btn" class="secondary">Choose Code File</button>
+        <div class="muted" style="font-size:12px; margin-top:6px;">Supported: .c, .cpp, .java, .py, .txt (max 100 KB)</div>
+        <div id="file-badge-wrap" style="display:none; margin-top:8px;">
+          <span class="file-badge">
+            <span id="file-badge-name"></span>
+            <span id="file-badge-size" class="muted"></span>
+            <button type="button" id="clear-file" class="small-btn" title="Remove file">✕</button>
+          </span>
+        </div>
+        <div id="file-error" class="error" style="display:none; margin-top:8px; font-size:13px;"></div>
+      </div>
+    </div>
+
+    <div id="preset-panel" style="display:none;">
+      <label for="sample">Sample from splits (optional)</label>
+      <select id="sample"><option value="">— choose a sample —</option></select>
+    </div>
 
     <label for="language">Language</label>
     <select id="language">
@@ -87,13 +126,18 @@
     </select>
 
     <label for="code">Code</label>
-    <textarea id="code" spellcheck="false" placeholder="Paste a program here..."></textarea>
+    <textarea id="code" spellcheck="false" placeholder="Paste, type, or import a program here..."></textarea>
 
     <div class="row">
       <button id="analyze">Analyze and verify</button>
       <button id="clear" class="secondary" type="button">Clear</button>
       <span id="status" class="status"></span>
     </div>
+  </section>
+
+  <section class="wide" id="explanation-card">
+    <h2>Simplified Final Explanation</h2>
+    <div id="explanation"><span class="muted">Analyze code above to see a beginner-friendly 4-part explanation.</span></div>
   </section>
 
   <section>
@@ -128,10 +172,146 @@
   let verifiedCode = null;
   let verifiedLanguage = null;
 
+  const MAX_FILE_BYTES = 100 * 1024; // 100 KB limit
+  const SUPPORTED_EXTS = [".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".java", ".py", ".txt"];
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    return (bytes / 1024).toFixed(1) + " KB";
+  }
+
+  function showFileError(msg) {
+    const err = $("file-error");
+    err.textContent = msg;
+    err.style.display = "block";
+    setStatus(msg, true);
+  }
+
+  function clearFileError() {
+    const err = $("file-error");
+    err.textContent = "";
+    err.style.display = "none";
+  }
+
+  function showFileBadge(name, size) {
+    $("file-badge-name").textContent = "📄 " + name;
+    $("file-badge-size").textContent = "(" + formatBytes(size) + ")";
+    $("file-badge-wrap").style.display = "block";
+  }
+
+  function clearFileBadge() {
+    $("file-badge-wrap").style.display = "none";
+    $("file-badge-name").textContent = "";
+    $("file-badge-size").textContent = "";
+    $("file-input").value = "";
+    clearFileError();
+  }
+
+  function processFile(file) {
+    clearFileError();
+    if (!file) return;
+
+    // 1. Check file extension
+    const name = file.name || "";
+    const dotIdx = name.lastIndexOf(".");
+    const ext = dotIdx !== -1 ? name.slice(dotIdx).toLowerCase() : "";
+    if (!SUPPORTED_EXTS.includes(ext)) {
+      showFileError("Unsupported file type (" + (ext || "unknown") + "). Please upload a .c, .cpp, .java, .py, or .txt file.");
+      return;
+    }
+
+    // 2. Check empty file
+    if (file.size === 0) {
+      showFileError("The selected file is empty (0 bytes).");
+      return;
+    }
+
+    // 3. Check file size limit
+    if (file.size > MAX_FILE_BYTES) {
+      showFileError("File is too large (" + formatBytes(file.size) + "). Maximum allowed size is 100 KB.");
+      return;
+    }
+
+    // 4. Read file content
+    const reader = new FileReader();
+    reader.onerror = () => {
+      showFileError("Failed to read file. Please ensure it is a valid text document.");
+    };
+    reader.onload = (e) => {
+      const content = e.target.result;
+      if (!content || !content.trim()) {
+        showFileError("The selected file contains no readable text or code.");
+        return;
+      }
+      $("code").value = content;
+      showFileBadge(name, file.size);
+
+      // Auto-detect language
+      if (ext === ".py") {
+        $("language").value = "python";
+      } else if (ext === ".c" || ext === ".h") {
+        $("language").value = "c";
+      } else if (ext === ".cpp" || ext === ".hpp" || ext === ".cc" || ext === ".cxx") {
+        $("language").value = "cpp";
+      } else if (ext === ".java") {
+        $("language").value = "cpp";
+        setStatus("Loaded " + name + " (Java syntax; analyzed under C-family engine).");
+      }
+      invalidateVerification();
+      setStatus("Imported file: " + name);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function setInputTab(mode) {
+    $("tab-paste").className = "tab-btn" + (mode === "paste" ? " active" : "");
+    $("tab-file").className = "tab-btn" + (mode === "file" ? " active" : "");
+    $("tab-preset").className = "tab-btn" + (mode === "preset" ? " active" : "");
+    $("file-panel").style.display = mode === "file" ? "block" : "none";
+    $("preset-panel").style.display = mode === "preset" ? "block" : "none";
+  }
+
+  $("tab-paste").addEventListener("click", () => setInputTab("paste"));
+  $("tab-file").addEventListener("click", () => setInputTab("file"));
+  $("tab-preset").addEventListener("click", () => setInputTab("preset"));
+
+  $("browse-btn").addEventListener("click", () => {
+    $("file-input").value = "";
+    $("file-input").click();
+  });
+
+  $("file-input").addEventListener("change", (e) => {
+    if (e.target.files && e.target.files.length) {
+      processFile(e.target.files[0]);
+    }
+  });
+
+  $("clear-file").addEventListener("click", () => {
+    clearFileBadge();
+    setStatus("File removed.");
+  });
+
+  const dropBox = $("drop-box");
+  dropBox.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropBox.classList.add("dragover");
+  });
+  dropBox.addEventListener("dragleave", () => {
+    dropBox.classList.remove("dragover");
+  });
+  dropBox.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropBox.classList.remove("dragover");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  });
+
   function invalidateVerification() {
     verifiedCode = null;
     verifiedLanguage = null;
     $("download").hidden = true;
+    $("explanation").replaceChildren(el("span", "Input changed. Analyze and verify again.", "muted"));
     $("detection").replaceChildren(el("span", "Nothing analyzed yet.", "muted"));
     $("context").replaceChildren(el("span", "Context appears after a detected error.", "muted"));
     $("repair").replaceChildren(el("span", "Repair appears after a detected error.", "muted"));
@@ -180,6 +360,7 @@
   $("sample").addEventListener("change", (ev) => {
     const s = samples.find((x) => x.id === ev.target.value);
     if (!s) return;
+    clearFileBadge();
     $("code").value = s.mutated_code;
     $("language").value = s.language;
     invalidateVerification();
@@ -191,7 +372,9 @@
   $("clear").addEventListener("click", () => {
     $("code").value = "";
     $("sample").value = "";
+    clearFileBadge();
     invalidateVerification();
+    $("explanation").replaceChildren(el("span", "Analyze code above to see a beginner-friendly 4-part explanation.", "muted"));
     setStatus("");
   });
 
@@ -347,6 +530,79 @@
     box.append(table);
   }
 
+  function renderExplanation(data) {
+    const box = $("explanation");
+    box.replaceChildren();
+    const exp = data.explanation;
+    if (!exp) {
+      box.append(el("span", "No explanation available.", "muted"));
+      return;
+    }
+
+    if (exp.status === "clean") {
+      const card = el("div", null, "exp-card code");
+      const h3 = el("h3", "✅ No Errors Detected!");
+      h3.style.color = "var(--ok)";
+      const p1 = el("p", exp.error || "Your code looks good and requires no fix.");
+      p1.style.margin = "4px 0";
+      const p2 = el("p", exp.why || "Code compiled cleanly without errors.", "muted");
+      p2.style.margin = "4px 0 0";
+      card.append(h3, p1, p2);
+      box.append(card);
+      return;
+    }
+
+    const grid = el("div", null, "exp-grid");
+
+    // 🔴 Error
+    const errCard = el("div", null, "exp-card err");
+    const errTitle = el("h3", "### 🔴 Error");
+    errTitle.style.color = "var(--bad)";
+    const errText = el("div", exp.error || "An issue was detected in the code.");
+    errCard.append(errTitle, errText);
+    grid.append(errCard);
+
+    // 🔧 Fix
+    const fixCard = el("div", null, "exp-card fix");
+    const fixTitle = el("h3", "### 🔧 Fix");
+    fixTitle.style.color = "var(--accent)";
+    const fixText = el("div", exp.fix || "Automated fix proposed.");
+    fixCard.append(fixTitle, fixText);
+    grid.append(fixCard);
+
+    // 💡 Why?
+    const whyCard = el("div", null, "exp-card why");
+    const whyTitle = el("h3", "### 💡 Why?");
+    whyTitle.style.color = "var(--warn)";
+    const whyText = el("div", exp.why || "Reason for this change.");
+    whyCard.append(whyTitle, whyText);
+    grid.append(whyCard);
+
+    // ✅ Corrected Code
+    const codeCard = el("div", null, "exp-card code");
+    const codeTitle = el("h3");
+    codeTitle.style.color = "var(--ok)";
+    const titleSpan = el("span", "### ✅ Corrected Code");
+    const copyBtn = el("button", "📋 Copy Code", "secondary small-btn");
+    copyBtn.type = "button";
+    copyBtn.style.fontWeight = "600";
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(exp.corrected_code || "");
+        copyBtn.textContent = "✓ Copied!";
+        setTimeout(() => { copyBtn.textContent = "📋 Copy Code"; }, 2000);
+      } catch (_) {
+        copyBtn.textContent = "✓ Done";
+      }
+    });
+    codeTitle.append(titleSpan, copyBtn);
+    const pre = el("pre", exp.corrected_code || "");
+    codeCard.append(codeTitle, pre);
+    grid.append(codeCard);
+
+    box.append(grid);
+  }
+
   $("analyze").addEventListener("click", async () => {
     const code = $("code").value;
     const language = $("language").value;
@@ -367,6 +623,7 @@
         return;
       }
       if (!res.ok) { setStatus(data.error || "Request failed", true); return; }
+      renderExplanation(data);
       renderDetection(data.detection);
       renderContext(data.context);
       renderRepair(data.repair, data.detection);
