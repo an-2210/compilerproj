@@ -73,23 +73,50 @@
   .file-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); padding: 4px 10px; border-radius: 6px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
   .small-btn { padding: 2px 6px; font-size: 11px; border-radius: 4px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
   .small-btn:hover { color: var(--bad); border-color: var(--bad); }
-  .exp-grid { display: grid; gap: 12px; margin-top: 8px; }
-  .exp-card { border-radius: 6px; padding: 12px 14px; border: 1px solid var(--line); }
+  .exp-grid { display: grid; gap: 10px; margin-top: 8px; }
+  .exp-card { border-radius: 6px; padding: 10px 12px; border: 1px solid var(--line); font-size: 13px; }
   .exp-card.err { border-color: var(--bad); background: rgba(180, 35, 24, .04); }
   .exp-card.fix { border-color: var(--accent); background: rgba(36, 86, 214, .04); }
   .exp-card.why { border-color: var(--warn); background: rgba(154, 103, 0, .04); }
   .exp-card.code { border-color: var(--ok); background: rgba(26, 127, 55, .04); }
-  .exp-card h3 { margin: 0 0 6px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .exp-card h3 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .exp-card pre { max-height: 200px; font-size: 12px; }
+  #input-card, #explanation-card { display: flex; flex-direction: column; min-height: 480px; }
+  #explanation { flex: 1; display: flex; flex-direction: column; }
+  .welcome-card { background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; padding: 16px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .welcome-card h3 { margin: 0 0 6px; font-size: 14px; color: var(--ink); }
+  .welcome-card p { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+  .pipeline-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .pipeline-step { display: flex; gap: 10px; align-items: flex-start; }
+  .step-badge { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step-text { font-size: 12px; line-height: 1.4; }
+  .step-title { font-weight: 600; color: var(--ink); }
+  .step-desc { color: var(--muted); font-size: 11.5px; }
+  .welcome-tip { background: rgba(36, 86, 214, 0.08); border-left: 3px solid var(--accent); padding: 8px 10px; border-radius: 4px; font-size: 12px; color: var(--ink); }
+  .section-divider { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-top: 4px; }
+  .section-divider-title { font-weight: 700; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Compiler error detection and repair</h1>
-  <p>Detect errors, inspect candidate repairs, and review independent verification.</p>
+  <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    <div>
+      <h1 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 18px;">
+        <span>🛠️ Compiler Error Detection &amp; Repair</span>
+        <span class="badge ok" style="font-size: 11px; font-weight: normal;">v2.0</span>
+      </h1>
+      <p style="margin: 4px 0 0; color: var(--muted); font-size: 13px;">Compiler-grounded intelligent debugging: Detect &rarr; Explain &rarr; Repair &rarr; Verify</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <span class="badge" style="font-size: 11px;">C &bull; C++ &bull; Python</span>
+      <span class="badge ok" style="font-size: 11px;">Sandbox Re-compile Verified</span>
+    </div>
+  </div>
 </header>
 
 <main>
-  <section>
+  <!-- TOP WORKBENCH (SIDE-BY-SIDE) -->
+  <section id="input-card">
     <h2>Input</h2>
     <div class="tabs">
       <button type="button" id="tab-paste" class="tab-btn active">📋 Paste Code</button>
@@ -156,31 +183,44 @@
     </div>
   </section>
 
-  <section class="wide" id="explanation-card">
-    <h2>Simplified Final Explanation</h2>
-    <div id="explanation"><span class="muted">Analyze code above to see a beginner-friendly 4-part explanation.</span></div>
+  <!-- LIVE RESULTS & EXPLANATION (RIGHT SIDE OF WORKBENCH) -->
+  <section id="explanation-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h2 style="margin: 0;">Simplified Final Explanation</h2>
+      <span id="explanation-badge" class="badge">Awaiting Analysis</span>
+    </div>
+    <div id="explanation">
+      <span class="muted">Analyze code above to see a beginner-friendly 4-part explanation.</span>
+    </div>
   </section>
 
-  <section>
+  <!-- DEEP TECHNICAL INSPECTION DIVIDER -->
+  <div class="section-divider wide">
+    <div class="section-divider-title">🔬 Deep Technical Inspection</div>
+    <span class="muted" style="font-size: 12px;">P1 Data &bull; P2 Analysis &bull; P3 ML Candidates &bull; P4 Compiler Verification</span>
+  </div>
+
+  <section id="detection-card">
     <h2>Detection</h2>
     <div id="detection"><span class="muted">Nothing analyzed yet.</span></div>
   </section>
 
-  <section>
+  <section id="context-card">
     <h2>Context</h2>
     <div id="context"><span class="muted">Context appears after a detected error.</span></div>
   </section>
 
-  <section>
+  <section id="repair-card">
     <h2>Repair</h2>
     <div id="repair"><span class="muted">Repair appears after a detected error.</span></div>
   </section>
 
-  <section class="wide">
+  <section id="candidates-card">
     <h2>Candidate fixes</h2>
     <div id="candidates" class="scroll"><span class="muted">None yet.</span></div>
   </section>
-  <section class="wide">
+
+  <section class="wide" id="verification-card">
     <h2>Verification and attempt history</h2>
     <div id="verification"><span class="muted">No verification yet.</span></div>
     <div class="row"><button id="download" class="secondary" type="button" hidden>Download verified repair</button></div>
@@ -328,11 +368,61 @@
     }
   });
 
+  function renderInitialExplanationState() {
+    const box = $("explanation");
+    box.replaceChildren();
+    const badge = $("explanation-badge");
+    if (badge) {
+      badge.textContent = "Awaiting Analysis";
+      badge.className = "badge";
+    }
+
+    const welcome = el("div", null, "welcome-card");
+    const h3 = el("h3", "⚡ Live Repair & Explanation Panel");
+    const p = el("p", "When you analyze code on the left, this panel displays a beginner-friendly 4-part breakdown along with your compiler-verified fix.");
+    
+    const steps = el("div", null, "pipeline-steps");
+
+    const s1 = el("div", null, "pipeline-step");
+    s1.append(el("div", "1", "step-badge"));
+    const s1Text = el("div", null, "step-text");
+    s1Text.append(el("div", "Input Code", "step-title"), el("div", "Paste, import a file (.c, .cpp, .java, .py), or pick a preset sample.", "step-desc"));
+    s1.append(s1Text);
+
+    const s2 = el("div", null, "pipeline-step");
+    s2.append(el("div", "2", "step-badge"));
+    const s2Text = el("div", null, "step-text");
+    s2Text.append(el("div", "Choose AI Engine", "step-title"), el("div", "Select deterministic Local Rules, local Ollama LLM, or Hosted API.", "step-desc"));
+    s2.append(s2Text);
+
+    const s3 = el("div", null, "pipeline-step");
+    s3.append(el("div", "3", "step-badge"));
+    const s3Text = el("div", null, "step-text");
+    s3Text.append(el("div", "Verified Fix", "step-title"), el("div", "Compiler tests candidate in an isolated sandbox to guarantee zero regressions.", "step-desc"));
+    s3.append(s3Text);
+
+    steps.append(s1, s2, s3);
+
+    const tip = el("div", null, "welcome-tip");
+    tip.innerHTML = "💡 <strong>Tip:</strong> Click <strong>Analyze and verify</strong> to run the end-to-end pipeline!";
+
+    welcome.append(h3, p, steps, tip);
+    box.append(welcome);
+  }
+
   function invalidateVerification() {
     verifiedCode = null;
     verifiedLanguage = null;
     $("download").hidden = true;
-    $("explanation").replaceChildren(el("span", "Input changed. Analyze and verify again.", "muted"));
+    if ($("code").value.trim()) {
+      if ($("explanation-badge")) {
+        $("explanation-badge").textContent = "Input Changed";
+        $("explanation-badge").className = "badge warn";
+      }
+      $("explanation").replaceChildren(el("span", "Input changed. Analyze and verify again.", "muted"));
+    } else {
+      renderInitialExplanationState();
+    }
     $("detection").replaceChildren(el("span", "Nothing analyzed yet.", "muted"));
     $("context").replaceChildren(el("span", "Context appears after a detected error.", "muted"));
     $("repair").replaceChildren(el("span", "Repair appears after a detected error.", "muted"));
@@ -395,7 +485,7 @@
     $("sample").value = "";
     clearFileBadge();
     invalidateVerification();
-    $("explanation").replaceChildren(el("span", "Analyze code above to see a beginner-friendly 4-part explanation.", "muted"));
+    renderInitialExplanationState();
     setStatus("");
   });
 
@@ -556,11 +646,19 @@
     box.replaceChildren();
     const exp = data.explanation;
     if (!exp) {
+      if ($("explanation-badge")) {
+        $("explanation-badge").textContent = "No Data";
+        $("explanation-badge").className = "badge muted";
+      }
       box.append(el("span", "No explanation available.", "muted"));
       return;
     }
 
     if (exp.status === "clean") {
+      if ($("explanation-badge")) {
+        $("explanation-badge").textContent = "Clean";
+        $("explanation-badge").className = "badge ok";
+      }
       const card = el("div", null, "exp-card code");
       const h3 = el("h3", "✅ No Errors Detected!");
       h3.style.color = "var(--ok)";
@@ -571,6 +669,16 @@
       card.append(h3, p1, p2);
       box.append(card);
       return;
+    }
+
+    if ($("explanation-badge")) {
+      if (exp.status === "fixed") {
+        $("explanation-badge").textContent = "Verified Repair";
+        $("explanation-badge").className = "badge ok";
+      } else {
+        $("explanation-badge").textContent = "Unresolved";
+        $("explanation-badge").className = "badge warn";
+      }
     }
 
     const grid = el("div", null, "exp-grid");
@@ -604,6 +712,8 @@
     const codeTitle = el("h3");
     codeTitle.style.color = "var(--ok)";
     const titleSpan = el("span", "### ✅ Corrected Code");
+    
+    const actionsSpan = el("span");
     const copyBtn = el("button", "📋 Copy Code", "secondary small-btn");
     copyBtn.type = "button";
     copyBtn.style.fontWeight = "600";
@@ -616,7 +726,27 @@
         copyBtn.textContent = "✓ Done";
       }
     });
-    codeTitle.append(titleSpan, copyBtn);
+    actionsSpan.append(copyBtn);
+
+    if (exp.status === "fixed" && exp.corrected_code) {
+      const dlBtn = el("button", "⬇️ Download", "secondary small-btn");
+      dlBtn.type = "button";
+      dlBtn.style.fontWeight = "600";
+      dlBtn.style.marginLeft = "6px";
+      dlBtn.addEventListener("click", () => {
+        const lang = $("language").value;
+        const blob = new Blob([exp.corrected_code], {type: "text/plain;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = el("a");
+        a.href = url;
+        a.download = lang === "python" ? "repaired.py" : (lang === "cpp" ? "repaired.cpp" : "repaired.c");
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+      actionsSpan.append(dlBtn);
+    }
+
+    codeTitle.append(titleSpan, actionsSpan);
     const pre = el("pre", exp.corrected_code || "");
     codeCard.append(codeTitle, pre);
     grid.append(codeCard);
@@ -682,6 +812,11 @@
     const button = $("analyze");
     button.disabled = true;
     invalidateVerification();
+    if ($("explanation-badge")) {
+      $("explanation-badge").textContent = "Analyzing...";
+      $("explanation-badge").className = "badge warn";
+    }
+    $("explanation").replaceChildren(el("div", "⚡ Compiling, detecting errors, and evaluating repairs in sandbox...", "status muted"));
     setStatus("Analyzing...");
     try {
       const res = await fetch("/api/repair", {
@@ -711,6 +846,7 @@
 
   loadSamples();
   loadModels();
+  renderInitialExplanationState();
 </script>
 </body>
 </html>
