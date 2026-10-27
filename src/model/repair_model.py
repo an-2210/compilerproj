@@ -343,6 +343,127 @@ class HostedLLMProvider(ModelProvider):
             raise ProviderUnavailableError(f"Network error calling {self.provider}: {err_msg}")
 
 
+class OllamaProvider(ModelProvider):
+    """Local LLM provider connecting to Ollama (http://localhost:11434).
+
+    Supports:
+    - Native Ollama REST API (/api/chat, /api/generate, /api/tags)
+    - Local coding models (deepseek-coder, qwen2.5-coder, codellama, llama3)
+    - JSON formatting enforcement (format="json")
+    - Model listing and health probing
+    - Zero external API keys or cloud dependencies needed
+    """
+
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        base_url: Optional[str] = None,
+        timeout_seconds: float = 60.0,
+    ):
+        self.base_url = (base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
+        self.model_name = model_name or os.environ.get("OLLAMA_MODEL", "deepseek-coder")
+        self.timeout_seconds = timeout_seconds
+
+    def is_available(self) -> bool:
+        """Probe Ollama endpoint with a quick connection check."""
+        import socket
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(self.base_url)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port or 11434
+            with socket.create_connection((host, port), timeout=0.3):
+                return True
+        except Exception:
+            return False
+
+    def list_models(self) -> List[str]:
+        """Fetch list of available model tags from Ollama."""
+        import urllib.request
+
+        try:
+            req = urllib.request.Request(f"{self.base_url}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                models = data.get("models", [])
+                return [m.get("name", "") for m in models if m.get("name")]
+        except Exception:
+            return []
+
+    def get_model_name(self) -> str:
+        return f"ollama:{self.model_name}"
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.0,
+        max_tokens: int = 2048,
+        **kwargs,
+    ) -> str:
+        import urllib.request
+        import urllib.error
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": self.model_name,
+            "messages": messages,
+            "format": "json",
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+
+        endpoint = f"{self.base_url}/api/chat"
+        req_data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            endpoint,
+            data=req_data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                msg = data.get("message", {})
+                content = msg.get("content", "")
+                if not content and "response" in data:
+                    content = data["response"]
+                return content
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")
+            raise ProviderUnavailableError(f"HTTP {e.code} from Ollama ({self.base_url}): {err_body}")
+        except Exception as e:
+            raise ProviderUnavailableError(
+                f"Failed to connect to Ollama at {self.base_url}: {e}. "
+                f"Make sure Ollama is installed and running ('ollama serve')."
+            )
+
+
+def get_provider(
+    provider_type: Optional[str] = None,
+    model_name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    **kwargs,
+) -> ModelProvider:
+    """Factory returning the requested or environment-configured ModelProvider."""
+    selected = (provider_type or os.environ.get("MODEL_PROVIDER", "mock")).lower().strip()
+    if selected == "ollama":
+        return OllamaProvider(model_name=model_name, base_url=base_url, **kwargs)
+    elif selected in ("hosted", "openai", "gemini"):
+        return HostedLLMProvider(provider=selected, model_name=model_name, base_url=base_url, **kwargs)
+    else:
+        return MockModelProvider(model_name=model_name or "mock-repair-v1", **kwargs)
+
+
 # ---------------------------------------------------------------- Robust JSON Parser
 
 def parse_model_output(raw_output: str) -> StructuredModelOutput:

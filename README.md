@@ -311,5 +311,72 @@ are in [docs/analysis_engineer.md](docs/analysis_engineer.md).
 
 ```bash
 python scripts/evaluate_analysis.py     # writes reports/analysis_eval.json and reports/analysis_summary.md
-python3 dev_frontend/server.py          # test page at http://127.0.0.1:8765
+python dev_frontend/server.py           # test page at http://127.0.0.1:8765
 ```
+
+---
+
+## 13. ML Engineer Layer & Ollama Local LLM Integration
+
+The `src/model/` package defines the repair model generation interface (`ModelProvider`), supporting three provider backends:
+
+- **Mock / Deterministic Rules (`MockModelProvider`):** Fast, reproducible, 100% offline baseline that requires zero external services or API keys.
+- **Ollama Local LLM (`OllamaProvider`):** Direct integration with native [Ollama](https://ollama.com) (`/api/chat` and `/api/tags`). Prompts the local LLM using structured JSON schema format, fast socket-level availability checking (300ms non-blocking probe), and automatic error recovery.
+- **Hosted API (`HostedAPIProvider`):** Integration with remote API endpoints (e.g. OpenAI / Anthropic-compatible endpoints) using environment variables.
+
+### Running with Ollama
+
+```bash
+# 1. Start Ollama daemon
+ollama serve
+
+# 2. Pull your preferred code model
+ollama pull deepseek-coder:1.3b
+# or
+ollama pull qwen2.5-coder:1.5b
+
+# 3. Configure via .env (or environment variables)
+# See .env.example for all configuration keys
+MODEL_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=deepseek-coder:1.3b
+```
+
+---
+
+## 14. Unified Repair CLI
+
+The project includes an end-to-end command-line repair tool (`scripts/repair_cli.py`) that coordinates Detection -> Explanation -> Candidate Generation -> Verification:
+
+```bash
+# Repair a broken source file
+python scripts/repair_cli.py --file path/to/broken.py
+
+# Repair code provided directly via command-line
+python scripts/repair_cli.py --code "def add(a, b) return a + b" --language python
+
+# Use a specific provider and model
+python scripts/repair_cli.py --file main.c --provider ollama --model deepseek-coder:1.3b
+
+# Save output or export structured JSON
+python scripts/repair_cli.py --file broken.cpp --output fixed.cpp
+python scripts/repair_cli.py --file broken.py --json
+```
+
+---
+
+## 15. Web Interface & Document Import
+
+Launch the interactive web UI and backend server:
+
+```bash
+python dev_frontend/server.py
+```
+
+Open <http://127.0.0.1:8765/> to access:
+- **Code Input Options:** Paste code, select pre-set bug examples, or use the **Import File** button supporting `.c`, `.cpp`, `.java`, `.py`, and `.txt`.
+- **AI Engine Switcher:** Real-time selector between Local Rules/Mock, Ollama Local LLM, and Hosted API.
+- **Dynamic Model Discovery:** Automatically queries `GET /api/models` to display available Ollama models and connection health.
+- **Multi-Stage Inspection Panels:** View detected compiler diagnostics, source context AST, generated repair candidates with unified diffs, and compiler verification proof.
+- **Download Verified Patch:** Safe one-click download for verified source files.
+

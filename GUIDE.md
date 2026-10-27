@@ -23,6 +23,74 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/repair -Method Post -ContentTyp
 
 The exact output includes `detection`, `context`, `repair`, `attempts`, `selected`, `status`, `reason`, and `repaired_code`. For the example, the rule engine proposes a colon, the verifier writes that candidate to a temporary `.py` file, runs a separate Python compile command, and reports `VERIFIED` when no detected errors remain.
 
+## Document Import and AI Engine Selection
+
+The web interface (<http://127.0.0.1:8765/>) supports:
+1. **Document Import**: Click **Import File** to load `.c`, `.cpp`, `.java`, `.py`, or `.txt` files directly into the editor.
+2. **AI Engine Selector**: Choose between:
+   - `⚡ Local Rules / Mock`: Deterministic local rules and fast offline baseline.
+   - `🦙 Ollama Local LLM`: Connects to a locally running Ollama instance (e.g. `deepseek-coder`, `llama3`, `codellama`, `qwen2.5-coder`).
+   - `☁️ Hosted API`: Uses external LLM providers configured via API keys.
+3. **Model Detection**: When Ollama is running (`ollama serve`), the UI dynamically populates available downloaded models and displays a live connection status badge (`● Ollama Ready`).
+
+## Unified Repair CLI (`scripts/repair_cli.py`)
+
+A full-featured command-line interface provides the complete Detect -> Explain -> Repair -> Verify pipeline:
+
+```bash
+# Repair a file directly
+python scripts/repair_cli.py --file path/to/broken.py
+
+# Repair code passed as a string
+python scripts/repair_cli.py --code "def add(a, b) return a + b" --language python
+
+# Specify engine and model (e.g., local Ollama)
+python scripts/repair_cli.py --file main.c --provider ollama --model deepseek-coder:1.3b
+
+# Save verified code to file or output JSON
+python scripts/repair_cli.py --file broken.py --output fixed.py
+python scripts/repair_cli.py --file broken.py --json
+```
+
+Output includes 4 clear sections:
+- `[-] ERROR`: File, line, column, and raw compiler diagnostic.
+- `[*] FIX`: Concise explanation of the applied fix.
+- `[?] WHY`: Root cause rationale and underlying language rule.
+- `[OK] CORRECTED CODE`: Syntax-highlighted verified replacement or diff.
+
+## Local Ollama Setup
+
+To use Ollama for local LLM-powered repairs:
+
+1. **Install and Start Ollama**:
+   ```bash
+   # Download from https://ollama.com
+   ollama serve
+   ```
+2. **Pull a Code Model**:
+   ```bash
+   ollama pull deepseek-coder:1.3b
+   # or
+   ollama pull qwen2.5-coder:1.5b
+   ```
+3. **Configure Environment (Optional)**:
+   Copy `.env.example` to `.env` or set environment variables:
+   ```bash
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=deepseek-coder:1.3b
+   MODEL_PROVIDER=ollama
+   ```
+4. If Ollama is offline or not installed, the system automatically falls back to deterministic rule-based repair with zero runtime errors.
+
+## Docker Deployment
+
+To launch with Docker Compose:
+
+```bash
+docker compose up --build
+```
+`compose.yaml` maps `host.docker.internal:host-gateway` and configures `OLLAMA_BASE_URL: "http://host.docker.internal:11434"` so containerized services can access Ollama running on your host machine.
+
 ## Result meanings
 
 | Status | Action |
@@ -38,8 +106,9 @@ For a C function defined with a single unnamed `const char *` parameter, the rul
 
 ## Tests and repository map
 
-Run `python -m pytest -q`. `src/data_engine` owns fixtures and compiler adapters, `src/analysis_engine` owns detection and rules, `src/model` owns optional candidate generation, `src/systems` owns verification and selection, and `dev_frontend` owns the API and UI. `tests/test_systems.py` covers the real static path and HTTP route. Related details are in `docs/INTERFACES.md`, `docs/REPOSITORY_AUDIT.md`, `INSTRUCTION.md` and `EXPLANATION.md`.
+Run `python -m pytest -q`. `src/data_engine` owns fixtures and compiler adapters, `src/analysis_engine` owns detection and rules, `src/model` owns candidate generation (including `OllamaProvider`), `src/systems` owns verification and selection, and `dev_frontend` owns the API and UI. `tests/test_systems.py` and `tests/test_ollama.py` cover the real static path, HTTP routes, and provider integration. Related details are in `docs/INTERFACES.md`, `docs/REPOSITORY_AUDIT.md`, `INSTRUCTION.md` and `EXPLANATION.md`.
 
 ## Troubleshooting and limits
 
 Install dependencies into the active interpreter if `pyflakes` is missing. Ensure `gcc`/`g++` are in `PATH` for C/C++. If 8765 is occupied, set `APP_PORT` before starting. A 503 means required analysis tooling is unavailable. Candidate generation defaults to a deterministic mock model and local rules; it requires no API key. Unsupported repairs can correctly end as `NOT_REPAIRED`. The system compiles or parses source but never runs the submitted program. Compiler preprocessing is not a strong sandbox; use trusted local input or add an isolated worker before exposing this service publicly.
+

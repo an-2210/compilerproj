@@ -118,12 +118,33 @@
       <select id="sample"><option value="">— choose a sample —</option></select>
     </div>
 
-    <label for="language">Language</label>
-    <select id="language">
-      <option value="python">Python</option>
-      <option value="c">C</option>
-      <option value="cpp">C++</option>
-    </select>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div>
+        <label for="language">Language</label>
+        <select id="language">
+          <option value="python">Python</option>
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+        </select>
+      </div>
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label for="provider" style="margin: 0;">AI Engine</label>
+          <span id="ollama-status-badge" class="badge" style="font-size: 11px; margin: 0;">checking ollama...</span>
+        </div>
+        <select id="provider">
+          <option value="mock">⚡ Local Rules / Mock</option>
+          <option value="ollama">🦙 Ollama Local LLM</option>
+          <option value="hosted">☁️ Hosted API</option>
+        </select>
+      </div>
+    </div>
+    <div id="model-wrap" style="display: none; margin-bottom: 10px;">
+      <label for="model-select">Ollama Model</label>
+      <select id="model-select">
+        <option value="deepseek-coder">deepseek-coder</option>
+      </select>
+    </div>
 
     <label for="code">Code</label>
     <textarea id="code" spellcheck="false" placeholder="Paste, type, or import a program here..."></textarea>
@@ -603,9 +624,60 @@
     box.append(grid);
   }
 
+  let modelsData = null;
+
+  async function loadModels() {
+    try {
+      const res = await fetch("/api/models");
+      if (!res.ok) return;
+      modelsData = await res.json();
+      const p = modelsData.providers;
+      const badge = $("ollama-status-badge");
+      if (p.ollama && p.ollama.available) {
+        const count = p.ollama.models ? p.ollama.models.length : 0;
+        badge.textContent = `● Ollama Ready (${count} models)`;
+        badge.className = "badge ok";
+        const modelSel = $("model-select");
+        modelSel.replaceChildren();
+        if (count > 0) {
+          for (const m of p.ollama.models) {
+            const opt = el("option", m);
+            opt.value = m;
+            modelSel.append(opt);
+          }
+        } else {
+          const opt = el("option", p.ollama.default_model || "deepseek-coder");
+          opt.value = p.ollama.default_model || "deepseek-coder";
+          modelSel.append(opt);
+        }
+      } else {
+        badge.textContent = "○ Ollama Offline";
+        badge.className = "badge muted";
+      }
+    } catch (_) {
+      $("ollama-status-badge").textContent = "○ Ollama Offline";
+      $("ollama-status-badge").className = "badge muted";
+    }
+  }
+
+  $("provider").addEventListener("change", () => {
+    const prov = $("provider").value;
+    const modelWrap = $("model-wrap");
+    if (prov === "ollama") {
+      modelWrap.style.display = "block";
+      if (modelsData && modelsData.providers && !modelsData.providers.ollama.available) {
+        setStatus("Ollama is currently offline on http://localhost:11434. Start Ollama ('ollama serve') or select Local Rules.", true);
+      }
+    } else {
+      modelWrap.style.display = "none";
+    }
+  });
+
   $("analyze").addEventListener("click", async () => {
     const code = $("code").value;
     const language = $("language").value;
+    const provider = $("provider").value;
+    const model = $("model-select").value;
     if (!code.trim()) { setStatus("Paste some code or choose a sample first.", true); return; }
     const button = $("analyze");
     button.disabled = true;
@@ -615,7 +687,7 @@
       const res = await fetch("/api/repair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, language }),
+        body: JSON.stringify({ code, language, provider, model }),
       });
       const data = await res.json();
       if ($("code").value !== code || $("language").value !== language) {
@@ -638,6 +710,7 @@
   });
 
   loadSamples();
+  loadModels();
 </script>
 </body>
 </html>

@@ -100,6 +100,34 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/samples":
             self._send_json(200, sample_list())
+        elif self.path == "/api/models":
+            from src.model.repair_model import OllamaProvider, HostedLLMProvider
+            ollama = OllamaProvider()
+            hosted = HostedLLMProvider()
+            ollama_avail = ollama.is_available()
+            ollama_models = ollama.list_models() if ollama_avail else []
+            self._send_json(200, {
+                "providers": {
+                    "mock": {
+                        "name": "Deterministic Heuristic / Rules",
+                        "available": True,
+                        "default": True,
+                        "models": ["mock-repair-v1"],
+                    },
+                    "ollama": {
+                        "name": "Ollama (Local LLM)",
+                        "available": ollama_avail,
+                        "base_url": ollama.base_url,
+                        "default_model": ollama.model_name,
+                        "models": ollama_models,
+                    },
+                    "hosted": {
+                        "name": "Hosted API (OpenAI / Gemini)",
+                        "available": hosted.is_available(),
+                        "model": hosted.model_name,
+                    },
+                }
+            })
         elif self.path == "/health":
             self._send_json(200, {"status": "ok"})
         else:
@@ -118,8 +146,13 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 raise ValueError("JSON body must be an object")
             if self.path == "/api/repair":
-                result = run_pipeline(body.get("code", ""), body.get("language", "python"),
-                                      max_attempts=body.get("max_attempts", 3)).model_dump()
+                result = run_pipeline(
+                    body.get("code", ""),
+                    body.get("language", "python"),
+                    max_attempts=body.get("max_attempts", 3),
+                    provider=body.get("provider"),
+                    model_name=body.get("model"),
+                ).model_dump()
             else:
                 result = analyze(body.get("code", ""), body.get("language", "python"))
             self._send_json(200, result)

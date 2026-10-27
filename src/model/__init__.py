@@ -30,7 +30,9 @@ from src.model.repair_model import (
     HostedLLMProvider,
     MockModelProvider,
     ModelProvider,
+    OllamaProvider,
     RepairModel,
+    get_provider,
     parse_model_output,
 )
 from src.model.candidate_generator import (
@@ -73,6 +75,8 @@ __all__ = [
     "ModelProvider",
     "MockModelProvider",
     "HostedLLMProvider",
+    "OllamaProvider",
+    "get_provider",
     "RepairModel",
     "parse_model_output",
     # Generator API
